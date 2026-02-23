@@ -17,3 +17,16 @@ Run tests:
 cd apps/ios-spike/BeaconSpikeCore
 swift test
 ```
+
+Run the iOS spike app target:
+
+```bash
+open apps/ios-spike/BeaconSpikeApp/BeaconSpikeApp.xcodeproj
+```
+
+In Xcode, run the `BeaconSpikeApp` scheme on a device/simulator. The app will:
+
+- request location authorization
+- start `CLVisit` and significant location monitoring
+- append callbacks through `CoreLocationSignalCaptureAdapter` into NDJSON logs
+- show log path, entry count, and recent callback activity in a debug UI

@@ -1,0 +1,260 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* BeaconSpikeCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000010000000000000013 /* BeaconSpikeCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000010000000000000002 /* BeaconSpikeApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeaconSpikeApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A10000010000000000000003 /* Exceptions for "BeaconSpikeApp" folder in "BeaconSpikeApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A10000010000000000000008 /* BeaconSpikeApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A10000010000000000000004 /* BeaconSpikeApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A10000010000000000000003 /* Exceptions for "BeaconSpikeApp" folder in "BeaconSpikeApp" target */,
+			);
+			path = BeaconSpikeApp;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000010000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000001 /* BeaconSpikeCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000010000000000000006 = {
+			isa = PBXGroup;
+			children = (
+				A10000010000000000000004 /* BeaconSpikeApp */,
+				A10000010000000000000007 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000010000000000000007 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000010000000000000002 /* BeaconSpikeApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000010000000000000008 /* BeaconSpikeApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000010000000000000011 /* Build configuration list for PBXNativeTarget "BeaconSpikeApp" */;
+			buildPhases = (
+				A1000001000000000000000B /* Sources */,
+				A10000010000000000000005 /* Frameworks */,
+				A1000001000000000000000A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A10000010000000000000004 /* BeaconSpikeApp */,
+			);
+			name = BeaconSpikeApp;
+			packageProductDependencies = (
+				A10000010000000000000013 /* BeaconSpikeCore */,
+			);
+			productName = BeaconSpikeApp;
+			productReference = A10000010000000000000002 /* BeaconSpikeApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000010000000000000009 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					A10000010000000000000008 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+				};
+			};
+			buildConfigurationList = A10000010000000000000010 /* Build configuration list for PBXProject "BeaconSpikeApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000010000000000000006;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A10000010000000000000012 /* XCLocalSwiftPackageReference "../BeaconSpikeCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A10000010000000000000007 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000010000000000000008 /* BeaconSpikeApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1000001000000000000000A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1000001000000000000000B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1000001000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A1000001000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A1000001000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSB32H74W9;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BeaconSpikeApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.doughty.beacon-spike-app";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1000001000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSB32H74W9;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BeaconSpikeApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = "org.doughty.beacon-spike-app";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000010000000000000010 /* Build configuration list for PBXProject "BeaconSpikeApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000001000000000000000C /* Debug */,
+				A1000001000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000010000000000000011 /* Build configuration list for PBXNativeTarget "BeaconSpikeApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000001000000000000000E /* Debug */,
+				A1000001000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A10000010000000000000012 /* XCLocalSwiftPackageReference "../BeaconSpikeCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../BeaconSpikeCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000010000000000000013 /* BeaconSpikeCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000010000000000000012 /* XCLocalSwiftPackageReference "../BeaconSpikeCore" */;
+			productName = BeaconSpikeCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A10000010000000000000009 /* Project object */;
+}
