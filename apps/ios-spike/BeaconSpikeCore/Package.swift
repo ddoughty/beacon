@@ -15,12 +15,20 @@ let package = Package(
             name: "BeaconSpikeCore",
             targets: ["BeaconSpikeCore"]
         ),
+        .executable(
+            name: "BeaconSpikeAnalyze",
+            targets: ["BeaconSpikeAnalyze"]
+        ),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "BeaconSpikeCore"
+        ),
+        .executableTarget(
+            name: "BeaconSpikeAnalyze",
+            dependencies: ["BeaconSpikeCore"]
         ),
         .testTarget(
             name: "BeaconSpikeCoreTests",

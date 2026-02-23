@@ -102,6 +102,5 @@ Contract updates required:
 ## 9. Appendix
 
 - NDJSON export location(s):
-- Aggregate notebook/script location:
+- Aggregate notebook/script location: `apps/ios-spike/BeaconSpikeCore` (`swift run BeaconSpikeAnalyze <path> [--require-clvisit]`)
 - Open issues created from findings:
-

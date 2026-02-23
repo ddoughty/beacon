@@ -118,6 +118,94 @@ import Foundation
     #expect(entries[0].device.appState == .foreground)
 }
 
+@Test func analyzerSummarizesSignalCountsAndPercentiles() throws {
+    let analyzer = SpikeLogAnalyzer()
+
+    let entries = [
+        makeEntry(signal: .clvisitArrival, appState: .background, delaySeconds: 10),
+        makeEntry(signal: .clvisitArrival, appState: .background, delaySeconds: 20),
+        makeEntry(signal: .clvisitArrival, appState: .background, delaySeconds: 30),
+        makeEntry(signal: .clvisitArrival, appState: .background, delaySeconds: 40),
+        makeEntry(signal: .clvisitDeparture, appState: .background, delaySeconds: 7),
+        makeEntry(signal: .significantLocationChange, appState: .foreground, delaySeconds: 2),
+        makeEntry(signal: .significantLocationChange, appState: .foreground, delaySeconds: 4),
+        makeEntry(signal: .significantLocationChange, appState: .foreground, delaySeconds: 6),
+        makeEntry(signal: .significantLocationChange, appState: .foreground, delaySeconds: 8),
+        makeEntry(signal: .significantLocationChange, appState: .foreground, delaySeconds: 10),
+    ]
+
+    let summary = analyzer.analyze(entries: entries)
+    #expect(summary.totalEntries == 10)
+    #expect(summary.transitionEntryCount == 10)
+    #expect(summary.hasVisitArrival)
+    #expect(summary.hasVisitDeparture)
+
+    let arrival = try #require(summary.summary(for: .clvisitArrival))
+    #expect(arrival.sampleCount == 4)
+    #expect(arrival.p50DelaySeconds == 20)
+    #expect(arrival.p95DelaySeconds == 40)
+    #expect(arrival.p99DelaySeconds == 40)
+    #expect(arrival.maxDelaySeconds == 40)
+
+    let significant = try #require(summary.summary(for: .significantLocationChange))
+    #expect(significant.sampleCount == 5)
+    #expect(significant.p50DelaySeconds == 6)
+    #expect(significant.p95DelaySeconds == 10)
+    #expect(significant.p99DelaySeconds == 10)
+    #expect(significant.maxDelaySeconds == 10)
+}
+
+@Test func analyzerDerivesDelayWhenDelaySecondsMissing() throws {
+    let analyzer = SpikeLogAnalyzer()
+    let callback = Date(timeIntervalSince1970: 1_709_052_222)
+
+    let derivedDelayEntry = SpikeLogEntry(
+        recordType: .transitionSample,
+        recordedAt: callback,
+        sessionID: "session-derived",
+        device: SpikeDeviceContext(
+            deviceModel: "iPhone16,1",
+            iosVersion: "18.2",
+            appState: .background,
+            lowPowerMode: false,
+            batteryLevelPct: 80
+        ),
+        sample: SpikeSample(
+            signalType: .significantLocationChange,
+            eventOccurredAt: callback.addingTimeInterval(-12),
+            callbackReceivedAt: callback,
+            delaySeconds: nil,
+            latitude: 42.36,
+            longitude: -71.05,
+            horizontalAccuracyM: 20,
+            notes: "derived delay test"
+        )
+    )
+
+    let summary = analyzer.analyze(entries: [derivedDelayEntry])
+    let significant = try #require(summary.summary(for: .significantLocationChange))
+    #expect(significant.sampleCount == 1)
+    #expect(significant.p50DelaySeconds == 12)
+    #expect(significant.maxDelaySeconds == 12)
+}
+
+@Test func analyzerIgnoresNonTransitionRecordsForSignalLatencyTable() {
+    let analyzer = SpikeLogAnalyzer()
+    let transition = makeEntry(signal: .clvisitArrival, appState: .background, delaySeconds: 4)
+    let nonTransition = SpikeLogEntry(
+        recordType: .sessionSummary,
+        recordedAt: Date(timeIntervalSince1970: 1_709_052_500),
+        sessionID: "session-summary",
+        device: transition.device,
+        sample: transition.sample
+    )
+
+    let summary = analyzer.analyze(entries: [transition, nonTransition])
+    #expect(summary.totalEntries == 2)
+    #expect(summary.transitionEntryCount == 1)
+    #expect(summary.signalSummaries.count == 1)
+}
+
 private func makeEntry(
     signal: SpikeSignalType,
     appState: SpikeAppState,
