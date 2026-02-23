@@ -45,6 +45,79 @@ import Foundation
     #expect(object["sample"] != nil)
 }
 
+@Test func visitCaptureWritesArrivalAndDepartureEntries() async throws {
+    let sink = RecordingSink()
+    let adapter = CoreLocationSignalCaptureAdapter(
+        sessionID: "session-visit",
+        deviceModel: "iPhone16,1",
+        iosVersion: "18.2",
+        appendEntry: { entry in
+            await sink.append(entry)
+        }
+    )
+
+    let callback = Date(timeIntervalSince1970: 1_709_060_000)
+    let visit = TestVisit(
+        arrivalDate: callback.addingTimeInterval(-240),
+        departureDate: callback.addingTimeInterval(-10),
+        latitude: 42.3601,
+        longitude: -71.0589,
+        horizontalAccuracy: 30.0
+    )
+
+    let written = try await adapter.captureVisit(
+        visit,
+        appState: .background,
+        lowPowerMode: false,
+        batteryLevelPct: 90,
+        callbackReceivedAt: callback
+    )
+
+    let entries = await sink.snapshot()
+    #expect(written == 2)
+    #expect(entries.count == 2)
+    #expect(entries[0].sample.signalType == .clvisitArrival)
+    #expect(entries[1].sample.signalType == .clvisitDeparture)
+    #expect(entries[0].sample.delaySeconds == 240)
+    #expect(entries[1].sample.delaySeconds == 10)
+}
+
+@Test func significantLocationCaptureWritesSingleEntry() async throws {
+    let sink = RecordingSink()
+    let adapter = CoreLocationSignalCaptureAdapter(
+        sessionID: "session-slc",
+        deviceModel: "iPhone16,2",
+        iosVersion: "18.2",
+        appendEntry: { entry in
+            await sink.append(entry)
+        }
+    )
+
+    let callback = Date(timeIntervalSince1970: 1_709_065_000)
+    let event = TestLocation(
+        timestamp: callback.addingTimeInterval(-6),
+        latitude: 42.3318,
+        longitude: -71.1211,
+        horizontalAccuracy: 18.0
+    )
+
+    try await adapter.captureSignificantLocationChange(
+        event,
+        appState: .foreground,
+        lowPowerMode: true,
+        batteryLevelPct: 66,
+        motionActivity: .walking,
+        callbackReceivedAt: callback
+    )
+
+    let entries = await sink.snapshot()
+    #expect(entries.count == 1)
+    #expect(entries[0].sample.signalType == .significantLocationChange)
+    #expect(entries[0].sample.delaySeconds == 6)
+    #expect(entries[0].sample.motionActivity == .walking)
+    #expect(entries[0].device.appState == .foreground)
+}
+
 private func makeEntry(
     signal: SpikeSignalType,
     appState: SpikeAppState,
@@ -79,4 +152,31 @@ private func makeEntry(
             notes: "test fixture"
         )
     )
+}
+
+private struct TestVisit: VisitSignalEvent {
+    let arrivalDate: Date
+    let departureDate: Date
+    let latitude: Double
+    let longitude: Double
+    let horizontalAccuracy: Double
+}
+
+private struct TestLocation: LocationSignalEvent {
+    let timestamp: Date
+    let latitude: Double
+    let longitude: Double
+    let horizontalAccuracy: Double
+}
+
+private actor RecordingSink {
+    private var entries: [SpikeLogEntry] = []
+
+    func append(_ entry: SpikeLogEntry) {
+        entries.append(entry)
+    }
+
+    func snapshot() -> [SpikeLogEntry] {
+        entries
+    }
 }

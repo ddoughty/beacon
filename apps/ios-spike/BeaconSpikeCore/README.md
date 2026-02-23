@@ -8,6 +8,7 @@ Current scope:
   `docs/v2/phase0-spike-log.schema.json`
 - NDJSON writer for app-side signal capture
 - NDJSON parser for local analysis and report generation
+- CoreLocation adapter for `CLVisit` and significant location change events
 - unit tests validating append/read flow and payload key format
 
 Run tests:
