@@ -1,0 +1,66 @@
+# macOS
+.DS_Store
+
+# Beads local/runtime state (keep .beads/issues.jsonl tracked)
+/.beads/hooks/
+/.beads/interactions.jsonl
+/.beads/dolt/
+/.beads/dolt-access.lock
+/.beads/bd.sock
+/.beads/bd.sock.startlock
+/.beads/sync-state.json
+/.beads/last-touched
+/.beads/.local_version
+/.beads/redirect
+/.beads/.sync.lock
+/.beads/.jsonl.lock
+/.beads/sync_base.jsonl
+/.beads/export-state/
+/.beads/ephemeral.sqlite3
+/.beads/ephemeral.sqlite3-journal
+/.beads/ephemeral.sqlite3-wal
+/.beads/ephemeral.sqlite3-shm
+
+# Xcode / Swift
+DerivedData/
+.build/
+Packages/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.xcscmblueprint
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+site/
+.eggs/
+*.egg
+*.egg-info/
+.ipynb_checkpoints/
