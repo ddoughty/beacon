@@ -96,6 +96,17 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         }
     }
 
+    func prepareExportFileURL() -> URL? {
+        let fileURL = URL(fileURLWithPath: logFilePath)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            let message = "No NDJSON file exists yet. Capture at least one callback before exporting."
+            lastError = message
+            record(message)
+            return nil
+        }
+        return fileURL
+    }
+
     private func startMonitoringIfAuthorized(for status: CLAuthorizationStatus) {
         authorizationStatus = Self.describe(status)
         guard status == .authorizedAlways || status == .authorizedWhenInUse else {

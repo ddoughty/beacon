@@ -1,7 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var viewModel = SpikeCaptureViewModel()
+    @State private var exportFileURL: URL?
+    @State private var isShowingExportSheet = false
 
     var body: some View {
         NavigationStack {
@@ -25,6 +28,13 @@ struct ContentView: View {
                     Button("Refresh Log Count") {
                         Task {
                             await viewModel.refreshLogEntryCount()
+                        }
+                    }
+
+                    Button("Export NDJSON") {
+                        if let fileURL = viewModel.prepareExportFileURL() {
+                            exportFileURL = fileURL
+                            isShowingExportSheet = true
                         }
                     }
                 }
@@ -64,6 +74,28 @@ struct ContentView: View {
         .task {
             await viewModel.refreshLogEntryCount()
         }
+        .sheet(isPresented: $isShowingExportSheet, onDismiss: {
+            exportFileURL = nil
+        }) {
+            if let exportFileURL {
+                ActivityView(activityItems: [exportFileURL])
+            } else {
+                Text("No file selected")
+                    .font(.headline)
+                    .padding()
+            }
+        }
+    }
+}
+
+private struct ActivityView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
     }
 }
 
