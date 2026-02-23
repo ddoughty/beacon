@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beacon.local/schemas/phase0-spike-log.schema.json",
+  "title": "Beacon Phase 0 Spike Log Entry",
+  "description": "Schema for one NDJSON record emitted by the Phase 0 iOS spike app.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_type",
+    "recorded_at",
+    "device",
+    "sample"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "record_type": {
+      "type": "string",
+      "enum": [
+        "transition_sample",
+        "battery_snapshot",
+        "focus_snapshot",
+        "ssid_probe",
+        "session_summary"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_model",
+        "ios_version",
+        "app_state"
+      ],
+      "properties": {
+        "device_model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ios_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "app_state": {
+          "type": "string",
+          "enum": [
+            "foreground",
+            "background",
+            "suspended",
+            "relaunch"
+          ]
+        },
+        "low_power_mode": {
+          "type": "boolean"
+        },
+        "battery_level_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_type"
+      ],
+      "properties": {
+        "signal_type": {
+          "type": "string",
+          "enum": [
+            "clvisit_arrival",
+            "clvisit_departure",
+            "significant_location_change",
+            "motion_update",
+            "focus_update",
+            "ssid_probe",
+            "battery_profile"
+          ]
+        },
+        "event_occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "callback_received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "delay_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "horizontal_accuracy_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "motion_activity": {
+          "type": "string",
+          "enum": [
+            "stationary",
+            "walking",
+            "running",
+            "cycling",
+            "automotive",
+            "unknown"
+          ]
+        },
+        "focus_state": {
+          "type": "string",
+          "enum": [
+            "unknown",
+            "off",
+            "on"
+          ]
+        },
+        "focus_label": {
+          "type": "string"
+        },
+        "ssid_status": {
+          "type": "string",
+          "enum": [
+            "available",
+            "unavailable",
+            "permission_denied"
+          ]
+        },
+        "battery_energy_impact": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
