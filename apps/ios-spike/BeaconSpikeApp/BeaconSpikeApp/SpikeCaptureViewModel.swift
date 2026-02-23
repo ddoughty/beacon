@@ -183,7 +183,7 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         guard batteryLevel >= 0 else {
             return nil
         }
-        return (batteryLevel * 100).rounded()
+        return (Double(batteryLevel) * 100).rounded()
     }
 
     private func record(_ message: String) {
