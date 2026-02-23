@@ -220,13 +220,18 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
 }
 
 extension SpikeCaptureViewModel: CLLocationManagerDelegate {
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        authorizationStatus = Self.describe(status)
-        startMonitoringIfAuthorized(for: status)
+        Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+            self.authorizationStatus = Self.describe(status)
+            self.startMonitoringIfAuthorized(for: status)
+        }
     }
 
-    func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
+    nonisolated func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
         let snapshot = VisitSnapshot(
             arrivalDate: visit.arrivalDate,
             departureDate: visit.departureDate,
@@ -234,10 +239,12 @@ extension SpikeCaptureViewModel: CLLocationManagerDelegate {
             longitude: visit.coordinate.longitude,
             horizontalAccuracy: visit.horizontalAccuracy
         )
-        captureVisit(snapshot)
+        Task { @MainActor [weak self] in
+            self?.captureVisit(snapshot)
+        }
     }
 
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else {
             return
         }
@@ -247,11 +254,19 @@ extension SpikeCaptureViewModel: CLLocationManagerDelegate {
             longitude: location.coordinate.longitude,
             horizontalAccuracy: location.horizontalAccuracy
         )
-        captureSignificantLocation(snapshot)
+        Task { @MainActor [weak self] in
+            self?.captureSignificantLocation(snapshot)
+        }
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        lastError = "CoreLocation error: \(error.localizedDescription)"
-        record(lastError ?? "CoreLocation error")
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        let message = "CoreLocation error: \(error.localizedDescription)"
+        Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+            self.lastError = message
+            self.record(message)
+        }
     }
 }
