@@ -21,6 +21,9 @@ For each observed transition sample:
 - horizontal accuracy and coordinates
 - battery level and low power mode state
 - device model + iOS version
+- transition stage (`provisional` or `confirmed`)
+- confirmation source (`clvisit`, `geofence`, `none_timeout`)
+- provisional-to-confirmed delay when both stages are observed
 
 Persist local samples to newline-delimited JSON for export.
 
@@ -51,6 +54,12 @@ Persist local samples to newline-delimited JSON for export.
   - mixed walk/drive errands day
 - Capture energy impact summary and high-cost call stacks.
 
+6. Hybrid fast-path validation
+- Emit provisional transitions from motion + significant-change hints, then
+  reconcile when CLVisit callbacks arrive.
+- Measure time-to-first provisional detection and % later confirmed by CLVisit.
+- Track false positives for short-stop visits (for example, trips under 15 min).
+
 ## Test Matrix
 
 - Devices: at least one recent iPhone + one older iPhone if available
@@ -64,6 +73,7 @@ Persist local samples to newline-delimited JSON for export.
 
 - CLVisit latency baseline established (distribution + worst-case notes)
 - Background wake reliability quantified with reproducible logs
+- Hybrid fast-path quality quantified (provisional speed, confirmation rate, false positives)
 - SSID signal either:
   - accepted for MVP inputs, or
   - explicitly removed from MVP with reason
@@ -81,4 +91,3 @@ Produce `docs/v2/phase0-validation-report.md` with:
 3. Quantitative results (tables + latency percentiles)
 4. Battery findings
 5. Recommendation for final MVP signal contract
-

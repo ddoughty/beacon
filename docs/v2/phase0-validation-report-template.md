@@ -39,6 +39,23 @@ Gate A recommendation:
 
 Notes:
 
+### 3.1 Hybrid Fast-Path Validation
+
+| Metric | Value | Notes |
+| --- | ---: | --- |
+| provisional transitions emitted |  |  |
+| provisional transitions confirmed by CLVisit |  |  |
+| provisional confirmation rate (%) |  |  |
+| provisional p50 time-to-first-detection (s) |  |  |
+| provisional p95 time-to-first-detection (s) |  |  |
+| provisional p95 time-to-confirmation (s) |  |  |
+| short-stop false positives (<15 min) |  |  |
+
+Decision:
+
+- Hybrid strategy acceptable for MVP? `yes/no`
+- Rationale:
+
 ## 4. Background Wake Reliability
 
 | App state | Opportunities | Callbacks received | Reliability % |

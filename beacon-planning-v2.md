@@ -139,6 +139,46 @@ Before heavy implementation, run focused spikes:
 
 Any signal failing reliability/value thresholds is removed from MVP inputs.
 
+## 6.1 Hybrid Transition Detection Policy (Fast + Confirmed)
+
+Use a two-stage transition model so short visits can still trigger timely context:
+
+1. **Fast provisional detection** from motion + significant change (+ optional one-shot precise fix)
+2. **Authoritative confirmation** from CLVisit arrival/departure when available
+
+Signal roles:
+
+- `CLVisit`: high-confidence arrival/departure, low power, delayed callbacks tolerated
+- `significant_location_change`: coarse movement boundary between places
+- `motion_activity`: quick travel start/stop hints
+- optional geofence enter/exit: instant known-place transitions when configured
+
+Policy rules:
+
+1. Emit a provisional departure/travel transition when motion changes from
+   stationary to walking/cycling/automotive and movement is corroborated by
+   significant-change or a short precise-fix burst.
+2. Emit a provisional arrival when motion returns to stationary near a new place
+   and remains stable for a short dwell window.
+3. Confirm and backfill transition timing when CLVisit arrival/departure arrives.
+4. If no CLVisit confirmation arrives within a timeout window, keep the event as
+   inferred (lower confidence) and avoid aggressive user-facing actions.
+
+Battery guardrails:
+
+- No continuous high-accuracy location tracking
+- One-shot precise bursts only on motion edge transitions
+- Auto-stop precise updates immediately after acceptable fix
+- Tighten/disable burst behavior in Low Power Mode
+
+Phase 0 must measure:
+
+- time-to-first provisional detection
+- provisional-to-confirmed delay
+- % of provisional transitions later confirmed by CLVisit
+- false-positive rate for short-stop trips (for example, quick grocery runs)
+- incremental battery impact versus CLVisit-only baseline
+
 ---
 
 ## 7. Realistic Timeline (18 Weeks + 2-Week Buffer)
