@@ -33,9 +33,18 @@ import Foundation
 }
 
 @Test func payloadUsesExpectedSnakeCaseKeys() throws {
-    let entry = makeEntry(signal: .ssidProbe, appState: .suspended, delaySeconds: 3.0)
+    let entry = makeEntry(
+        signal: .ssidProbe,
+        appState: .suspended,
+        delaySeconds: 3.0,
+        transitionStage: .provisional,
+        transitionID: "prov-001",
+        confirmationSource: .noneTimeout,
+        linkedProvisionalID: "prov-000"
+    )
     let payload = try SpikeJSONCodec.makeEncoder().encode(entry)
     let object = try #require(JSONSerialization.jsonObject(with: payload) as? [String: Any])
+    let sample = try #require(object["sample"] as? [String: Any])
 
     #expect(object["schema_version"] as? Int == 1)
     #expect(object["record_type"] as? String == "transition_sample")
@@ -43,6 +52,10 @@ import Foundation
     #expect(object["session_id"] as? String == "session-001")
     #expect(object["device"] != nil)
     #expect(object["sample"] != nil)
+    #expect(sample["transition_stage"] as? String == "provisional")
+    #expect(sample["transition_id"] as? String == "prov-001")
+    #expect(sample["confirmation_source"] as? String == "none_timeout")
+    #expect(sample["linked_provisional_id"] as? String == "prov-000")
 }
 
 @Test func visitCaptureWritesArrivalAndDepartureEntries() async throws {
@@ -80,6 +93,10 @@ import Foundation
     #expect(entries[1].sample.signalType == .clvisitDeparture)
     #expect(entries[0].sample.delaySeconds == 240)
     #expect(entries[1].sample.delaySeconds == 10)
+    #expect(entries[0].sample.transitionStage == .confirmed)
+    #expect(entries[1].sample.transitionStage == .confirmed)
+    #expect(entries[0].sample.confirmationSource == .clvisit)
+    #expect(entries[1].sample.confirmationSource == .clvisit)
 }
 
 @Test func significantLocationCaptureWritesSingleEntry() async throws {
@@ -116,6 +133,60 @@ import Foundation
     #expect(entries[0].sample.delaySeconds == 6)
     #expect(entries[0].sample.motionActivity == .walking)
     #expect(entries[0].device.appState == .foreground)
+    #expect(entries[0].sample.transitionStage == .provisional)
+    #expect(entries[0].sample.confirmationSource == nil)
+}
+
+@Test func captureMethodsPropagateTransitionMetadata() async throws {
+    let sink = RecordingSink()
+    let adapter = CoreLocationSignalCaptureAdapter(
+        sessionID: "session-metadata",
+        deviceModel: "iPhone16,2",
+        iosVersion: "18.2",
+        appendEntry: { entry in
+            await sink.append(entry)
+        }
+    )
+    let provisionalCallback = Date(timeIntervalSince1970: 1_709_070_000)
+    let visitCallback = provisionalCallback.addingTimeInterval(300)
+
+    try await adapter.captureSignificantLocationChange(
+        TestLocation(
+            timestamp: provisionalCallback.addingTimeInterval(-15),
+            latitude: 42.3318,
+            longitude: -71.1211,
+            horizontalAccuracy: 18.0
+        ),
+        appState: .background,
+        transitionID: "prov-42",
+        transitionStage: .provisional,
+        callbackReceivedAt: provisionalCallback
+    )
+
+    _ = try await adapter.captureVisit(
+        TestVisit(
+            arrivalDate: visitCallback.addingTimeInterval(-30),
+            departureDate: Date.distantFuture,
+            latitude: 42.3318,
+            longitude: -71.1211,
+            horizontalAccuracy: 18.0
+        ),
+        appState: .background,
+        transitionID: "confirm-42",
+        linkedProvisionalID: "prov-42",
+        confirmationSource: .clvisit,
+        transitionStage: .confirmed,
+        callbackReceivedAt: visitCallback
+    )
+
+    let entries = await sink.snapshot()
+    #expect(entries.count == 2)
+    #expect(entries[0].sample.transitionID == "prov-42")
+    #expect(entries[0].sample.transitionStage == .provisional)
+    #expect(entries[1].sample.transitionID == "confirm-42")
+    #expect(entries[1].sample.transitionStage == .confirmed)
+    #expect(entries[1].sample.linkedProvisionalID == "prov-42")
+    #expect(entries[1].sample.confirmationSource == .clvisit)
 }
 
 @Test func analyzerSummarizesSignalCountsAndPercentiles() throws {
@@ -139,6 +210,12 @@ import Foundation
     #expect(summary.transitionEntryCount == 10)
     #expect(summary.hasVisitArrival)
     #expect(summary.hasVisitDeparture)
+    #expect(!summary.hybridFastPath.stageMetadataPresent)
+    #expect(!summary.hybridFastPath.confirmationLinkagePresent)
+    #expect(summary.hybridFastPath.provisionalTransitionsEmitted == 5)
+    #expect(summary.hybridFastPath.provisionalTransitionsConfirmed == nil)
+    #expect(summary.hybridFastPath.provisionalP50DetectionSeconds == 6)
+    #expect(summary.hybridFastPath.provisionalP95DetectionSeconds == 10)
 
     let arrival = try #require(summary.summary(for: .clvisitArrival))
     #expect(arrival.sampleCount == 4)
@@ -206,10 +283,134 @@ import Foundation
     #expect(summary.signalSummaries.count == 1)
 }
 
+@Test func analyzerComputesHybridFastPathMetricsWithLinkedTransitions() {
+    let analyzer = SpikeLogAnalyzer()
+    let device = SpikeDeviceContext(
+        deviceModel: "iPhone16,1",
+        iosVersion: "18.2",
+        appState: .background,
+        lowPowerMode: false,
+        batteryLevelPct: 80
+    )
+    let base = Date(timeIntervalSince1970: 1_709_080_000)
+
+    let provisionalA = SpikeLogEntry(
+        recordType: .transitionSample,
+        recordedAt: base,
+        sessionID: "session-hybrid",
+        device: device,
+        sample: SpikeSample(
+            signalType: .significantLocationChange,
+            eventOccurredAt: base.addingTimeInterval(-10),
+            callbackReceivedAt: base,
+            delaySeconds: 10,
+            transitionStage: .provisional,
+            transitionID: "prov-a",
+            latitude: 42.36,
+            longitude: -71.05,
+            horizontalAccuracyM: 20,
+            notes: "provisional-a"
+        )
+    )
+    let provisionalB = SpikeLogEntry(
+        recordType: .transitionSample,
+        recordedAt: base.addingTimeInterval(60),
+        sessionID: "session-hybrid",
+        device: device,
+        sample: SpikeSample(
+            signalType: .significantLocationChange,
+            eventOccurredAt: base.addingTimeInterval(40),
+            callbackReceivedAt: base.addingTimeInterval(60),
+            delaySeconds: 20,
+            transitionStage: .provisional,
+            transitionID: "prov-b",
+            latitude: 42.36,
+            longitude: -71.05,
+            horizontalAccuracyM: 20,
+            notes: "provisional-b"
+        )
+    )
+    let provisionalC = SpikeLogEntry(
+        recordType: .transitionSample,
+        recordedAt: base.addingTimeInterval(120),
+        sessionID: "session-hybrid",
+        device: device,
+        sample: SpikeSample(
+            signalType: .significantLocationChange,
+            eventOccurredAt: base.addingTimeInterval(90),
+            callbackReceivedAt: base.addingTimeInterval(120),
+            delaySeconds: 30,
+            transitionStage: .provisional,
+            transitionID: "prov-c",
+            latitude: 42.36,
+            longitude: -71.05,
+            horizontalAccuracyM: 20,
+            notes: "provisional-c"
+        )
+    )
+    let confirmedA = SpikeLogEntry(
+        recordType: .transitionSample,
+        recordedAt: base.addingTimeInterval(300),
+        sessionID: "session-hybrid",
+        device: device,
+        sample: SpikeSample(
+            signalType: .clvisitArrival,
+            eventOccurredAt: base.addingTimeInterval(250),
+            callbackReceivedAt: base.addingTimeInterval(300),
+            delaySeconds: 50,
+            transitionStage: .confirmed,
+            transitionID: "confirm-a",
+            confirmationSource: .clvisit,
+            linkedProvisionalID: "prov-a",
+            latitude: 42.36,
+            longitude: -71.05,
+            horizontalAccuracyM: 20,
+            notes: "confirmed-a"
+        )
+    )
+    let confirmedB = SpikeLogEntry(
+        recordType: .transitionSample,
+        recordedAt: base.addingTimeInterval(1200),
+        sessionID: "session-hybrid",
+        device: device,
+        sample: SpikeSample(
+            signalType: .clvisitDeparture,
+            eventOccurredAt: base.addingTimeInterval(1140),
+            callbackReceivedAt: base.addingTimeInterval(1200),
+            delaySeconds: 60,
+            transitionStage: .confirmed,
+            transitionID: "confirm-b",
+            confirmationSource: .clvisit,
+            linkedProvisionalID: "prov-b",
+            latitude: 42.36,
+            longitude: -71.05,
+            horizontalAccuracyM: 20,
+            notes: "confirmed-b"
+        )
+    )
+
+    let summary = analyzer.analyze(entries: [provisionalA, provisionalB, provisionalC, confirmedA, confirmedB])
+    let hybrid = summary.hybridFastPath
+    #expect(hybrid.stageMetadataPresent)
+    #expect(hybrid.confirmationLinkagePresent)
+    #expect(hybrid.provisionalTransitionsEmitted == 3)
+    #expect(hybrid.provisionalTransitionsConfirmed == 2)
+    #expect(hybrid.provisionalConfirmationRatePercent == (2.0 / 3.0) * 100.0)
+    #expect(hybrid.provisionalP50DetectionSeconds == 20)
+    #expect(hybrid.provisionalP95DetectionSeconds == 30)
+    #expect(hybrid.confirmationP95Seconds == 1140)
+    #expect(hybrid.shortStopObservationCount == 3)
+    #expect(hybrid.shortStopFalsePositives == 1)
+}
+
 private func makeEntry(
     signal: SpikeSignalType,
     appState: SpikeAppState,
-    delaySeconds: Double
+    delaySeconds: Double,
+    transitionStage: SpikeTransitionStage? = nil,
+    transitionID: String? = nil,
+    confirmationSource: SpikeTransitionConfirmationSource? = nil,
+    linkedProvisionalID: String? = nil
 ) -> SpikeLogEntry {
     let recordedAt = Date(timeIntervalSince1970: 1_709_052_000)
     let occurredAt = recordedAt.addingTimeInterval(-delaySeconds)
@@ -229,6 +430,10 @@ private func makeEntry(
             eventOccurredAt: occurredAt,
             callbackReceivedAt: recordedAt,
             delaySeconds: delaySeconds,
+            transitionStage: transitionStage,
+            transitionID: transitionID,
+            confirmationSource: confirmationSource,
+            linkedProvisionalID: linkedProvisionalID,
             latitude: 42.3601,
             longitude: -71.0589,
             horizontalAccuracyM: 25.0,

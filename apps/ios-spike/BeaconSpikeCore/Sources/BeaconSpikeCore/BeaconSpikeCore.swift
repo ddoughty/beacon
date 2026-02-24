@@ -25,6 +25,17 @@ public enum SpikeSignalType: String, Codable, Sendable {
     case batteryProfile = "battery_profile"
 }
 
+public enum SpikeTransitionStage: String, Codable, Sendable {
+    case provisional
+    case confirmed
+}
+
+public enum SpikeTransitionConfirmationSource: String, Codable, Sendable {
+    case clvisit
+    case geofence
+    case noneTimeout = "none_timeout"
+}
+
 public enum SpikeMotionActivity: String, Codable, Sendable {
     case stationary
     case walking
@@ -87,6 +98,10 @@ public struct SpikeSample: Codable, Sendable, Equatable {
     public let eventOccurredAt: Date?
     public let callbackReceivedAt: Date?
     public let delaySeconds: Double?
+    public let transitionStage: SpikeTransitionStage?
+    public let transitionID: String?
+    public let confirmationSource: SpikeTransitionConfirmationSource?
+    public let linkedProvisionalID: String?
     public let latitude: Double?
     public let longitude: Double?
     public let horizontalAccuracyM: Double?
@@ -102,6 +117,10 @@ public struct SpikeSample: Codable, Sendable, Equatable {
         case eventOccurredAt = "event_occurred_at"
         case callbackReceivedAt = "callback_received_at"
         case delaySeconds = "delay_seconds"
+        case transitionStage = "transition_stage"
+        case transitionID = "transition_id"
+        case confirmationSource = "confirmation_source"
+        case linkedProvisionalID = "linked_provisional_id"
         case latitude
         case longitude
         case horizontalAccuracyM = "horizontal_accuracy_m"
@@ -118,6 +137,10 @@ public struct SpikeSample: Codable, Sendable, Equatable {
         eventOccurredAt: Date? = nil,
         callbackReceivedAt: Date? = nil,
         delaySeconds: Double? = nil,
+        transitionStage: SpikeTransitionStage? = nil,
+        transitionID: String? = nil,
+        confirmationSource: SpikeTransitionConfirmationSource? = nil,
+        linkedProvisionalID: String? = nil,
         latitude: Double? = nil,
         longitude: Double? = nil,
         horizontalAccuracyM: Double? = nil,
@@ -132,6 +155,10 @@ public struct SpikeSample: Codable, Sendable, Equatable {
         self.eventOccurredAt = eventOccurredAt
         self.callbackReceivedAt = callbackReceivedAt
         self.delaySeconds = delaySeconds
+        self.transitionStage = transitionStage
+        self.transitionID = transitionID
+        self.confirmationSource = confirmationSource
+        self.linkedProvisionalID = linkedProvisionalID
         self.latitude = latitude
         self.longitude = longitude
         self.horizontalAccuracyM = horizontalAccuracyM

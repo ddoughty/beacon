@@ -89,6 +89,42 @@ struct BeaconSpikeAnalyzeCommand {
                     "\(delayString(signalSummary.p99DelaySeconds)) | \(delayString(signalSummary.maxDelaySeconds)) |"
             )
         }
+        print("")
+        print("Hybrid fast-path")
+        print("Stage metadata present: \(yesNo(summary.hybridFastPath.stageMetadataPresent))")
+        print("Confirmation linkage present: \(yesNo(summary.hybridFastPath.confirmationLinkagePresent))")
+        print("")
+        print("| Metric | Value |")
+        print("| --- | ---: |")
+        print("| provisional transitions emitted | \(countString(summary.hybridFastPath.provisionalTransitionsEmitted)) |")
+        print(
+            "| provisional transitions confirmed by CLVisit | " +
+                "\(optionalCountString(summary.hybridFastPath.provisionalTransitionsConfirmed)) |"
+        )
+        print(
+            "| provisional confirmation rate (%) | " +
+                "\(delayString(summary.hybridFastPath.provisionalConfirmationRatePercent)) |"
+        )
+        print(
+            "| provisional p50 time-to-first-detection (s) | " +
+                "\(delayString(summary.hybridFastPath.provisionalP50DetectionSeconds)) |"
+        )
+        print(
+            "| provisional p95 time-to-first-detection (s) | " +
+                "\(delayString(summary.hybridFastPath.provisionalP95DetectionSeconds)) |"
+        )
+        print(
+            "| provisional p95 time-to-confirmation (s) | " +
+                "\(delayString(summary.hybridFastPath.confirmationP95Seconds)) |"
+        )
+        let shortStop = shortStopString(
+            falsePositives: summary.hybridFastPath.shortStopFalsePositives,
+            observed: summary.hybridFastPath.shortStopObservationCount
+        )
+        print(
+            "| short-stop false positives (<15 min) | " +
+                "\(shortStop) |"
+        )
     }
 
     private static func yesNo(_ value: Bool) -> String {
@@ -100,6 +136,24 @@ struct BeaconSpikeAnalyzeCommand {
             return "n/a"
         }
         return String(format: "%.1f", delay)
+    }
+
+    private static func countString(_ value: Int) -> String {
+        "\(value)"
+    }
+
+    private static func optionalCountString(_ value: Int?) -> String {
+        guard let value else {
+            return "n/a"
+        }
+        return "\(value)"
+    }
+
+    private static func shortStopString(falsePositives: Int?, observed: Int?) -> String {
+        guard let falsePositives, let observed else {
+            return "n/a"
+        }
+        return "\(falsePositives) / \(observed)"
     }
 
     private static func timestampString(for date: Date) -> String {

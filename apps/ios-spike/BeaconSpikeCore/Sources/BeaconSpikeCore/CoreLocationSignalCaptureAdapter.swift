@@ -45,6 +45,10 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
         appState: SpikeAppState,
         lowPowerMode: Bool? = nil,
         batteryLevelPct: Double? = nil,
+        transitionID: String? = nil,
+        linkedProvisionalID: String? = nil,
+        confirmationSource: SpikeTransitionConfirmationSource? = .clvisit,
+        transitionStage: SpikeTransitionStage = .confirmed,
         callbackReceivedAt: Date? = nil
     ) async throws -> Int {
         let callbackAt = callbackReceivedAt ?? now()
@@ -60,6 +64,10 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
                 signalType: .clvisitArrival,
                 eventOccurredAt: visit.arrivalDate,
                 callbackReceivedAt: callbackAt,
+                transitionStage: transitionStage,
+                transitionID: transitionID,
+                confirmationSource: confirmationSource,
+                linkedProvisionalID: linkedProvisionalID,
                 context: context,
                 visit: visit
             )
@@ -72,6 +80,10 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
                 signalType: .clvisitDeparture,
                 eventOccurredAt: visit.departureDate,
                 callbackReceivedAt: callbackAt,
+                transitionStage: transitionStage,
+                transitionID: transitionID,
+                confirmationSource: confirmationSource,
+                linkedProvisionalID: linkedProvisionalID,
                 context: context,
                 visit: visit
             )
@@ -88,6 +100,10 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
         lowPowerMode: Bool? = nil,
         batteryLevelPct: Double? = nil,
         motionActivity: SpikeMotionActivity? = nil,
+        transitionID: String? = nil,
+        transitionStage: SpikeTransitionStage = .provisional,
+        confirmationSource: SpikeTransitionConfirmationSource? = nil,
+        linkedProvisionalID: String? = nil,
         callbackReceivedAt: Date? = nil
     ) async throws {
         let callbackAt = callbackReceivedAt ?? now()
@@ -107,6 +123,10 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
                 eventOccurredAt: location.timestamp,
                 callbackReceivedAt: callbackAt,
                 delaySeconds: delaySeconds,
+                transitionStage: transitionStage,
+                transitionID: transitionID,
+                confirmationSource: confirmationSource,
+                linkedProvisionalID: linkedProvisionalID,
                 latitude: location.latitude,
                 longitude: location.longitude,
                 horizontalAccuracyM: location.horizontalAccuracy,
@@ -121,6 +141,10 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
         signalType: SpikeSignalType,
         eventOccurredAt: Date,
         callbackReceivedAt: Date,
+        transitionStage: SpikeTransitionStage,
+        transitionID: String?,
+        confirmationSource: SpikeTransitionConfirmationSource?,
+        linkedProvisionalID: String?,
         context: SpikeDeviceContext,
         visit: some VisitSignalEvent
     ) -> SpikeLogEntry {
@@ -135,6 +159,10 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
                 eventOccurredAt: eventOccurredAt,
                 callbackReceivedAt: callbackReceivedAt,
                 delaySeconds: delaySeconds,
+                transitionStage: transitionStage,
+                transitionID: transitionID,
+                confirmationSource: confirmationSource,
+                linkedProvisionalID: linkedProvisionalID,
                 latitude: visit.latitude,
                 longitude: visit.longitude,
                 horizontalAccuracyM: visit.horizontalAccuracy,

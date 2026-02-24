@@ -1,6 +1,6 @@
 # Phase 0 Validation Report (Draft)
 
-Tracks: `beacon-go6.1.2`
+Tracks: `beacon-go6.1.6`
 
 ## 1. Summary Decision
 
@@ -11,11 +11,11 @@ Tracks: `beacon-go6.1.2`
 
 Gate A recommendation (preliminary):
 
-- SSID signal: `pending` (not yet evaluated in this draft)
-- Focus signal: `pending` (not yet evaluated in this draft)
+- SSID signal: `not instrumented yet` (0 SSID probes in current dataset)
+- Focus signal: `not instrumented yet` (0 Focus snapshots in current dataset)
 - CLVisit baseline quality: `acceptable (preliminary)` (arrival + departure observed)
-- Background wake reliability: `pending`
-- Battery impact: `pending`
+- Background wake reliability: `partial evidence only` (callbacks seen in `background` and `relaunch`; denominator still missing)
+- Battery impact: `pending dedicated profiling` (only callback snapshots so far)
 
 ## 2. Method
 
@@ -51,68 +51,66 @@ Notes:
 
 | Metric | Value | Notes |
 | --- | ---: | --- |
-| provisional transitions emitted | n/a | current spike log schema does not yet emit `provisional` stage |
-| provisional transitions confirmed by CLVisit | n/a | stage linkage not yet captured |
-| provisional confirmation rate (%) | n/a | requires staged transition IDs/links |
-| provisional p50 time-to-first-detection (s) | n/a | not instrumented in current run |
-| provisional p95 time-to-first-detection (s) | n/a | not instrumented in current run |
-| provisional p95 time-to-confirmation (s) | n/a | not instrumented in current run |
-| short-stop false positives (<15 min) | pending | requires additional short-stop field runs |
+| provisional transitions emitted | 6 | legacy fallback classifies `significant_location_change` entries as provisional |
+| provisional transitions confirmed by CLVisit | n/a | current dataset has no `transition_id`/`linked_provisional_id` linkage fields |
+| provisional confirmation rate (%) | n/a | requires linked provisional/confirmed IDs |
+| provisional p50 time-to-first-detection (s) | 25931.3 | from fallback provisional classification |
+| provisional p95 time-to-first-detection (s) | 27655.3 | from fallback provisional classification |
+| provisional p95 time-to-confirmation (s) | n/a | confirmation linkage unavailable in this export |
+| short-stop false positives (<15 min) | n/a | requires linked IDs plus >=15 minute observation windows |
 
 Decision:
 
 - Hybrid strategy acceptable for MVP? `pending`
-- Rationale: current dataset confirms CLVisit evidence but does not yet include explicit provisional-stage instrumentation.
+- Rationale: staged instrumentation (`transition_stage`, `transition_id`, `confirmation_source`, `linked_provisional_id`) is now in code, but this export predates that change and cannot quantify confirmation/false-positive rates yet.
 
 ## 4. Background Wake Reliability
 
 | App state | Opportunities | Callbacks received | Reliability % |
 | --- | ---: | ---: | ---: |
-| background | pending | pending | pending |
-| suspended | pending | pending | pending |
-| relaunch after termination | pending | pending | pending |
+| background | pending | 4 | pending |
+| suspended | pending | 0 | pending |
+| relaunch after termination | pending | 3 | pending |
 
 Observed failure modes:
 
-- Pending broader run data.
+- Reliability denominator is missing (callbacks are logged, but "opportunities" are not yet counted).
+- No explicit `suspended` callbacks observed in this dataset.
+- Significant-change callbacks show long-tail latency bursts, creating delayed wake visibility.
 
 ## 5. SSID Availability Assessment
 
-| Environment | Probes | available | unavailable | permission_denied |
+| Scope | Probes | available | unavailable | permission_denied |
 | --- | ---: | ---: | ---: | ---: |
-| home | pending | pending | pending | pending |
-| work | pending | pending | pending | pending |
-| transit | pending | pending | pending | pending |
+| aggregate (current dataset) | 0 | 0 | 0 | 0 |
 
 Decision:
 
 - Include SSID in MVP inputs? `pending`
-- Rationale: pending.
+- Rationale: no SSID probes have been emitted yet, so availability and permission behavior are unknown.
 
 ## 6. Focus Signal Utility
 
-| Scenario | Focus visible? | Decision impact? | Notes |
+| Scope | Focus visible? | Decision impact? | Notes |
 | --- | --- | --- | --- |
-| arrival at grocery | pending | pending | pending |
-| arrival at work | pending | pending | pending |
-| arrival at home | pending | pending | pending |
+| aggregate (current dataset) | no samples | pending | no `focus_snapshot` or `focus_state` values captured |
 
 Decision:
 
 - Include focus in MVP policy inputs? `pending`
-- Rationale: pending.
+- Rationale: signal remains unmeasured in real-device runs.
 
 ## 7. Battery Findings
 
 Instruments summaries:
 
 - commute day: pending
-- stationary day: pending
+- stationary day: partial (9 callback samples all report `battery_level_pct=100`, `low_power_mode=false`)
 - mixed day: pending
 
 High-cost paths and mitigations:
 
-- Pending dedicated Instruments runs.
+- Pending dedicated Instruments energy runs; callback snapshots alone are insufficient for energy-cost conclusions.
 
 ## 8. Recommendation for Final MVP Signal Contract
 
@@ -128,7 +126,8 @@ Signals to defer/remove:
 
 Contract updates required:
 
-- Add explicit staged transition fields for `provisional` versus `confirmed` fast-path evaluation.
+- Staged transition fields are implemented in spike logs (`transition_stage`, `transition_id`, `confirmation_source`, `linked_provisional_id`); collect a fresh export to populate confirmation and short-stop metrics.
+- Add explicit background opportunity counters so reliability percentages can be computed (current logs capture callback counts only).
 
 ## 9. Appendix
 
@@ -138,3 +137,4 @@ Contract updates required:
   - `apps/ios-spike/BeaconSpikeCore` (`swift run BeaconSpikeAnalyze <path> [--require-clvisit]`)
 - Open issues created from findings:
   - `beacon-go6.1.6` (ongoing on-device smoke and broader collection)
+  - `beacon-1j6` (add background opportunity counters for reliability denominator)

@@ -24,6 +24,13 @@ private struct LocationSnapshot: LocationSignalEvent, Sendable {
     let horizontalAccuracy: Double
 }
 
+private struct ProvisionalTransition: Sendable {
+    let id: String
+    let callbackReceivedAt: Date
+    let latitude: Double
+    let longitude: Double
+}
+
 @MainActor
 final class SpikeCaptureViewModel: NSObject, ObservableObject {
     @Published private(set) var authorizationStatus: String
@@ -36,6 +43,7 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
     private let locationManager: CLLocationManager
     private let logger: NDJSONSpikeLogger
     private let adapter: CoreLocationSignalCaptureAdapter
+    private var provisionalTransitionBuffer: [ProvisionalTransition] = []
 
     override init() {
         let manager = CLLocationManager()
@@ -128,6 +136,9 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         let appState = currentAppState()
         let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         let batteryLevel = batteryLevelPercent()
+        let callbackAt = Date()
+        let linkedProvisionalID = consumeProvisionalMatch(for: snapshot, callbackAt: callbackAt)
+        let transitionID = linkedProvisionalID ?? Self.makeTransitionID(prefix: "confirm")
 
         Task {
             do {
@@ -135,10 +146,19 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
                     snapshot,
                     appState: appState,
                     lowPowerMode: lowPowerMode,
-                    batteryLevelPct: batteryLevel
+                    batteryLevelPct: batteryLevel,
+                    transitionID: transitionID,
+                    linkedProvisionalID: linkedProvisionalID,
+                    confirmationSource: .clvisit,
+                    transitionStage: .confirmed,
+                    callbackReceivedAt: callbackAt
                 )
                 await MainActor.run {
-                    record("Captured CLVisit callback (\(entriesWritten) entries)")
+                    if let linkedProvisionalID {
+                        record("Captured CLVisit callback (\(entriesWritten) entries, linked: \(linkedProvisionalID))")
+                    } else {
+                        record("Captured CLVisit callback (\(entriesWritten) entries, no provisional link)")
+                    }
                 }
                 await refreshLogEntryCount()
             } catch {
@@ -154,6 +174,8 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         let appState = currentAppState()
         let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         let batteryLevel = batteryLevelPercent()
+        let callbackAt = Date()
+        let transitionID = Self.makeTransitionID(prefix: "prov")
 
         Task {
             do {
@@ -161,10 +183,19 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
                     snapshot,
                     appState: appState,
                     lowPowerMode: lowPowerMode,
-                    batteryLevelPct: batteryLevel
+                    batteryLevelPct: batteryLevel,
+                    transitionID: transitionID,
+                    transitionStage: .provisional,
+                    callbackReceivedAt: callbackAt
                 )
                 await MainActor.run {
-                    record("Captured significant location callback")
+                    registerProvisionalTransition(
+                        id: transitionID,
+                        latitude: snapshot.latitude,
+                        longitude: snapshot.longitude,
+                        callbackAt: callbackAt
+                    )
+                    record("Captured significant location callback (provisional: \(transitionID))")
                 }
                 await refreshLogEntryCount()
             } catch {
@@ -203,6 +234,70 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
             events.removeLast(events.count - 40)
         }
     }
+
+    private func registerProvisionalTransition(
+        id: String,
+        latitude: Double,
+        longitude: Double,
+        callbackAt: Date
+    ) {
+        pruneProvisionalTransitions(referenceTime: callbackAt)
+        provisionalTransitionBuffer.append(
+            ProvisionalTransition(
+                id: id,
+                callbackReceivedAt: callbackAt,
+                latitude: latitude,
+                longitude: longitude
+            )
+        )
+    }
+
+    private func consumeProvisionalMatch(for visit: VisitSnapshot, callbackAt: Date) -> String? {
+        pruneProvisionalTransitions(referenceTime: callbackAt)
+        let visitLocation = CLLocation(latitude: visit.latitude, longitude: visit.longitude)
+        var bestIndex: Int?
+        var bestDistance: CLLocationDistance = .greatestFiniteMagnitude
+        var bestAge: TimeInterval = .greatestFiniteMagnitude
+
+        for (index, provisional) in provisionalTransitionBuffer.enumerated() {
+            let age = callbackAt.timeIntervalSince(provisional.callbackReceivedAt)
+            guard age >= 0, age <= Self.provisionalLinkWindowSeconds else {
+                continue
+            }
+
+            let provisionalLocation = CLLocation(latitude: provisional.latitude, longitude: provisional.longitude)
+            let distance = visitLocation.distance(from: provisionalLocation)
+            guard distance <= Self.provisionalLinkMaxDistanceMeters else {
+                continue
+            }
+
+            if distance < bestDistance || (distance == bestDistance && age < bestAge) {
+                bestIndex = index
+                bestDistance = distance
+                bestAge = age
+            }
+        }
+
+        guard let bestIndex else {
+            return nil
+        }
+
+        let matched = provisionalTransitionBuffer.remove(at: bestIndex)
+        return matched.id
+    }
+
+    private func pruneProvisionalTransitions(referenceTime: Date) {
+        provisionalTransitionBuffer.removeAll { provisional in
+            referenceTime.timeIntervalSince(provisional.callbackReceivedAt) > Self.provisionalLinkWindowSeconds
+        }
+    }
+
+    private static func makeTransitionID(prefix: String) -> String {
+        "\(prefix)_\(UUID().uuidString.lowercased())"
+    }
+
+    private static let provisionalLinkWindowSeconds: TimeInterval = 24 * 60 * 60
+    private static let provisionalLinkMaxDistanceMeters: CLLocationDistance = 500
 
     private static func makeLogFileURL() -> URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
