@@ -58,6 +58,33 @@ import Foundation
     #expect(sample["linked_provisional_id"] as? String == "prov-000")
 }
 
+@Test func payloadEncodesOpportunityTypeWithSnakeCaseKey() throws {
+    let recordedAt = Date(timeIntervalSince1970: 1_709_052_010)
+    let entry = SpikeLogEntry(
+        recordType: .sessionSummary,
+        recordedAt: recordedAt,
+        sessionID: "session-opp-payload",
+        device: SpikeDeviceContext(
+            deviceModel: "iPhone16,1",
+            iosVersion: "18.2",
+            appState: .relaunch,
+            lowPowerMode: false,
+            batteryLevelPct: 74
+        ),
+        sample: SpikeSample(
+            signalType: .callbackOpportunity,
+            callbackReceivedAt: recordedAt,
+            opportunityType: .relaunchWindow,
+            notes: "window_opened:test"
+        )
+    )
+
+    let payload = try SpikeJSONCodec.makeEncoder().encode(entry)
+    let object = try #require(JSONSerialization.jsonObject(with: payload) as? [String: Any])
+    let sample = try #require(object["sample"] as? [String: Any])
+    #expect(sample["opportunity_type"] as? String == "relaunch_window")
+}
+
 @Test func visitCaptureWritesArrivalAndDepartureEntries() async throws {
     let sink = RecordingSink()
     let adapter = CoreLocationSignalCaptureAdapter(
@@ -135,6 +162,35 @@ import Foundation
     #expect(entries[0].device.appState == .foreground)
     #expect(entries[0].sample.transitionStage == .provisional)
     #expect(entries[0].sample.confirmationSource == nil)
+}
+
+@Test func callbackOpportunityCaptureWritesSessionSummaryEntry() async throws {
+    let sink = RecordingSink()
+    let adapter = CoreLocationSignalCaptureAdapter(
+        sessionID: "session-opportunity",
+        deviceModel: "iPhone16,2",
+        iosVersion: "18.2",
+        appendEntry: { entry in
+            await sink.append(entry)
+        }
+    )
+
+    let capturedAt = Date(timeIntervalSince1970: 1_709_067_500)
+    try await adapter.captureCallbackOpportunity(
+        .backgroundWindow,
+        appState: .background,
+        lowPowerMode: false,
+        batteryLevelPct: 72,
+        recordedAt: capturedAt,
+        notes: "window_opened:test"
+    )
+
+    let entries = await sink.snapshot()
+    #expect(entries.count == 1)
+    #expect(entries[0].recordType == .sessionSummary)
+    #expect(entries[0].sample.signalType == .callbackOpportunity)
+    #expect(entries[0].sample.opportunityType == .backgroundWindow)
+    #expect(entries[0].sample.callbackReceivedAt == capturedAt)
 }
 
 @Test func captureMethodsPropagateTransitionMetadata() async throws {
@@ -403,16 +459,78 @@ import Foundation
     #expect(hybrid.shortStopFalsePositives == 1)
 }
 
+@Test func analyzerComputesBackgroundWakeReliabilityFromOpportunities() {
+    let analyzer = SpikeLogAnalyzer()
+    let base = Date(timeIntervalSince1970: 1_709_090_000)
+
+    let entries = [
+        makeOpportunityEntry(type: .backgroundWindow, appState: .background, recordedAt: base),
+        makeOpportunityEntry(type: .backgroundWindow, appState: .background, recordedAt: base.addingTimeInterval(60)),
+        makeOpportunityEntry(type: .suspendedWindow, appState: .suspended, recordedAt: base.addingTimeInterval(120)),
+        makeOpportunityEntry(type: .relaunchWindow, appState: .relaunch, recordedAt: base.addingTimeInterval(180)),
+        makeEntry(
+            signal: .clvisitArrival,
+            appState: .background,
+            delaySeconds: 15,
+            recordedAt: base.addingTimeInterval(10)
+        ),
+        makeEntry(
+            signal: .clvisitDeparture,
+            appState: .background,
+            delaySeconds: 12,
+            recordedAt: base.addingTimeInterval(10)
+        ),
+        makeEntry(
+            signal: .significantLocationChange,
+            appState: .background,
+            delaySeconds: 8,
+            recordedAt: base.addingTimeInterval(40)
+        ),
+        makeEntry(
+            signal: .significantLocationChange,
+            appState: .suspended,
+            delaySeconds: 11,
+            recordedAt: base.addingTimeInterval(130)
+        ),
+        makeEntry(
+            signal: .clvisitArrival,
+            appState: .relaunch,
+            delaySeconds: 20,
+            recordedAt: base.addingTimeInterval(200),
+            transitionID: "confirm-r"
+        ),
+        makeEntry(
+            signal: .clvisitDeparture,
+            appState: .relaunch,
+            delaySeconds: 19,
+            recordedAt: base.addingTimeInterval(200),
+            transitionID: "confirm-r"
+        ),
+    ]
+
+    let summary = analyzer.analyze(entries: entries)
+    let reliability = summary.backgroundWakeReliability
+    #expect(reliability.backgroundOpportunities == 2)
+    #expect(reliability.backgroundCallbacks == 2)
+    #expect(reliability.reliabilityPercent(for: .background) == 100)
+    #expect(reliability.suspendedOpportunities == 1)
+    #expect(reliability.suspendedCallbacks == 1)
+    #expect(reliability.reliabilityPercent(for: .suspended) == 100)
+    #expect(reliability.relaunchOpportunities == 1)
+    #expect(reliability.relaunchCallbacks == 1)
+    #expect(reliability.reliabilityPercent(for: .relaunch) == 100)
+}
+
 private func makeEntry(
     signal: SpikeSignalType,
     appState: SpikeAppState,
     delaySeconds: Double,
+    recordedAt: Date = Date(timeIntervalSince1970: 1_709_052_000),
     transitionStage: SpikeTransitionStage? = nil,
     transitionID: String? = nil,
     confirmationSource: SpikeTransitionConfirmationSource? = nil,
     linkedProvisionalID: String? = nil
 ) -> SpikeLogEntry {
-    let recordedAt = Date(timeIntervalSince1970: 1_709_052_000)
     let occurredAt = recordedAt.addingTimeInterval(-delaySeconds)
     return SpikeLogEntry(
         recordType: .transitionSample,
@@ -443,6 +561,31 @@ private func makeEntry(
             ssidStatus: .available,
             batteryEnergyImpact: .low,
             notes: "test fixture"
+        )
+    )
+}
+
+private func makeOpportunityEntry(
+    type: SpikeCallbackOpportunityType,
+    appState: SpikeAppState,
+    recordedAt: Date
+) -> SpikeLogEntry {
+    SpikeLogEntry(
+        recordType: .sessionSummary,
+        recordedAt: recordedAt,
+        sessionID: "session-opportunity",
+        device: SpikeDeviceContext(
+            deviceModel: "iPhone16,1",
+            iosVersion: "18.2",
+            appState: appState,
+            lowPowerMode: false,
+            batteryLevelPct: 82
+        ),
+        sample: SpikeSample(
+            signalType: .callbackOpportunity,
+            callbackReceivedAt: recordedAt,
+            opportunityType: type,
+            notes: "window_opened:test"
         )
     )
 }

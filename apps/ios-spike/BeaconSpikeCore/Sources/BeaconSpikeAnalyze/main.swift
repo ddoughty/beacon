@@ -125,6 +125,28 @@ struct BeaconSpikeAnalyzeCommand {
             "| short-stop false positives (<15 min) | " +
                 "\(shortStop) |"
         )
+        print("")
+        print("Background wake reliability")
+        print("| App state | Opportunities | Callbacks received | Reliability (%) |")
+        print("| --- | ---: | ---: | ---: |")
+        printReliabilityRow(
+            "background",
+            opportunities: summary.backgroundWakeReliability.backgroundOpportunities,
+            callbacks: summary.backgroundWakeReliability.backgroundCallbacks,
+            reliabilityPercent: summary.backgroundWakeReliability.reliabilityPercent(for: .background)
+        )
+        printReliabilityRow(
+            "suspended",
+            opportunities: summary.backgroundWakeReliability.suspendedOpportunities,
+            callbacks: summary.backgroundWakeReliability.suspendedCallbacks,
+            reliabilityPercent: summary.backgroundWakeReliability.reliabilityPercent(for: .suspended)
+        )
+        printReliabilityRow(
+            "relaunch",
+            opportunities: summary.backgroundWakeReliability.relaunchOpportunities,
+            callbacks: summary.backgroundWakeReliability.relaunchCallbacks,
+            reliabilityPercent: summary.backgroundWakeReliability.reliabilityPercent(for: .relaunch)
+        )
     }
 
     private static func yesNo(_ value: Bool) -> String {
@@ -154,6 +176,18 @@ struct BeaconSpikeAnalyzeCommand {
             return "n/a"
         }
         return "\(falsePositives) / \(observed)"
+    }
+
+    private static func printReliabilityRow(
+        _ stateLabel: String,
+        opportunities: Int,
+        callbacks: Int,
+        reliabilityPercent: Double?
+    ) {
+        print(
+            "| \(stateLabel) | \(countString(opportunities)) | \(countString(callbacks)) | " +
+                "\(delayString(reliabilityPercent)) |"
+        )
     }
 
     private static func timestampString(for date: Date) -> String {

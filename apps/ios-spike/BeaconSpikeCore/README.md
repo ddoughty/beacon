@@ -44,6 +44,9 @@ The analyzer prints:
 - total/transition entry counts
 - CLVisit arrival/departure presence
 - per-signal latency table (`p50`, `p95`, `p99`, `max`)
+- hybrid fast-path metrics (`provisional` detection/confirmation quality)
+- background wake reliability table (opportunities vs observed callbacks for
+  `background`, `suspended`, `relaunch`)
 
 When `--require-clvisit` is supplied, the command exits non-zero if either
 `clvisit_arrival` or `clvisit_departure` entries are missing.

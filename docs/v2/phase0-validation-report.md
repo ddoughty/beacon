@@ -14,7 +14,7 @@ Gate A recommendation (preliminary):
 - SSID signal: `not instrumented yet` (0 SSID probes in current dataset)
 - Focus signal: `not instrumented yet` (0 Focus snapshots in current dataset)
 - CLVisit baseline quality: `acceptable (preliminary)` (arrival + departure observed)
-- Background wake reliability: `partial evidence only` (callbacks seen in `background` and `relaunch`; denominator still missing)
+- Background wake reliability: `partial evidence only` (callbacks seen in `background` and `relaunch`; fresh export with opportunity counters pending)
 - Battery impact: `pending dedicated profiling` (only callback snapshots so far)
 
 ## 2. Method
@@ -69,13 +69,14 @@ Decision:
 
 | App state | Opportunities | Callbacks received | Reliability % |
 | --- | ---: | ---: | ---: |
-| background | pending | 12 | pending |
-| suspended | pending | 0 | pending |
-| relaunch after termination | pending | 4 | pending |
+| background | 0 | 8 | n/a |
+| suspended | 0 | 0 | n/a |
+| relaunch after termination | 0 | 4 | n/a |
 
 Observed failure modes:
 
-- Reliability denominator is missing (callbacks are logged, but "opportunities" are not yet counted).
+- Current analyzed export predates opportunity-counter instrumentation, so denominator values are still pending.
+- Callback counts are deduplicated at callback-window granularity (a CLVisit arrival/departure pair counts as one callback).
 - No explicit `suspended` callbacks observed in this dataset.
 - Significant-change callbacks show long-tail latency bursts, creating delayed wake visibility.
 
@@ -128,7 +129,7 @@ Signals to defer/remove:
 Contract updates required:
 
 - Staged transition fields are implemented in spike logs (`transition_stage`, `transition_id`, `confirmation_source`, `linked_provisional_id`); collect a fresh export to populate confirmation and short-stop metrics.
-- Add explicit background opportunity counters so reliability percentages can be computed (current logs capture callback counts only).
+- Collect a fresh NDJSON export after opportunity-counter instrumentation to populate reliability denominators.
 
 ## 9. Appendix
 

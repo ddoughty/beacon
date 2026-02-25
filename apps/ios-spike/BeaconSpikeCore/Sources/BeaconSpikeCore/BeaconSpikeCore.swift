@@ -19,6 +19,7 @@ public enum SpikeSignalType: String, Codable, Sendable {
     case clvisitArrival = "clvisit_arrival"
     case clvisitDeparture = "clvisit_departure"
     case significantLocationChange = "significant_location_change"
+    case callbackOpportunity = "callback_opportunity"
     case motionUpdate = "motion_update"
     case focusUpdate = "focus_update"
     case ssidProbe = "ssid_probe"
@@ -34,6 +35,12 @@ public enum SpikeTransitionConfirmationSource: String, Codable, Sendable {
     case clvisit
     case geofence
     case noneTimeout = "none_timeout"
+}
+
+public enum SpikeCallbackOpportunityType: String, Codable, Sendable {
+    case backgroundWindow = "background_window"
+    case suspendedWindow = "suspended_window"
+    case relaunchWindow = "relaunch_window"
 }
 
 public enum SpikeMotionActivity: String, Codable, Sendable {
@@ -98,6 +105,7 @@ public struct SpikeSample: Codable, Sendable, Equatable {
     public let eventOccurredAt: Date?
     public let callbackReceivedAt: Date?
     public let delaySeconds: Double?
+    public let opportunityType: SpikeCallbackOpportunityType?
     public let transitionStage: SpikeTransitionStage?
     public let transitionID: String?
     public let confirmationSource: SpikeTransitionConfirmationSource?
@@ -117,6 +125,7 @@ public struct SpikeSample: Codable, Sendable, Equatable {
         case eventOccurredAt = "event_occurred_at"
         case callbackReceivedAt = "callback_received_at"
         case delaySeconds = "delay_seconds"
+        case opportunityType = "opportunity_type"
         case transitionStage = "transition_stage"
         case transitionID = "transition_id"
         case confirmationSource = "confirmation_source"
@@ -137,6 +146,7 @@ public struct SpikeSample: Codable, Sendable, Equatable {
         eventOccurredAt: Date? = nil,
         callbackReceivedAt: Date? = nil,
         delaySeconds: Double? = nil,
+        opportunityType: SpikeCallbackOpportunityType? = nil,
         transitionStage: SpikeTransitionStage? = nil,
         transitionID: String? = nil,
         confirmationSource: SpikeTransitionConfirmationSource? = nil,
@@ -155,6 +165,7 @@ public struct SpikeSample: Codable, Sendable, Equatable {
         self.eventOccurredAt = eventOccurredAt
         self.callbackReceivedAt = callbackReceivedAt
         self.delaySeconds = delaySeconds
+        self.opportunityType = opportunityType
         self.transitionStage = transitionStage
         self.transitionID = transitionID
         self.confirmationSource = confirmationSource

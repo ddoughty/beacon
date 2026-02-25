@@ -62,6 +62,65 @@ public struct SpikeHybridFastPathSummary: Sendable, Equatable {
     }
 }
 
+public struct SpikeBackgroundWakeReliabilitySummary: Sendable, Equatable {
+    public let backgroundOpportunities: Int
+    public let backgroundCallbacks: Int
+    public let suspendedOpportunities: Int
+    public let suspendedCallbacks: Int
+    public let relaunchOpportunities: Int
+    public let relaunchCallbacks: Int
+
+    public init(
+        backgroundOpportunities: Int,
+        backgroundCallbacks: Int,
+        suspendedOpportunities: Int,
+        suspendedCallbacks: Int,
+        relaunchOpportunities: Int,
+        relaunchCallbacks: Int
+    ) {
+        self.backgroundOpportunities = backgroundOpportunities
+        self.backgroundCallbacks = backgroundCallbacks
+        self.suspendedOpportunities = suspendedOpportunities
+        self.suspendedCallbacks = suspendedCallbacks
+        self.relaunchOpportunities = relaunchOpportunities
+        self.relaunchCallbacks = relaunchCallbacks
+    }
+
+    public func opportunityCount(for appState: SpikeAppState) -> Int {
+        switch appState {
+        case .foreground:
+            return 0
+        case .background:
+            return backgroundOpportunities
+        case .suspended:
+            return suspendedOpportunities
+        case .relaunch:
+            return relaunchOpportunities
+        }
+    }
+
+    public func callbackCount(for appState: SpikeAppState) -> Int {
+        switch appState {
+        case .foreground:
+            return 0
+        case .background:
+            return backgroundCallbacks
+        case .suspended:
+            return suspendedCallbacks
+        case .relaunch:
+            return relaunchCallbacks
+        }
+    }
+
+    public func reliabilityPercent(for appState: SpikeAppState) -> Double? {
+        let opportunities = opportunityCount(for: appState)
+        guard opportunities > 0 else {
+            return nil
+        }
+        return (Double(callbackCount(for: appState)) / Double(opportunities)) * 100
+    }
+}
+
 public struct SpikeLogAnalysisSummary: Sendable, Equatable {
     public let totalEntries: Int
     public let transitionEntryCount: Int
@@ -69,6 +128,7 @@ public struct SpikeLogAnalysisSummary: Sendable, Equatable {
     public let lastRecordedAt: Date?
     public let signalSummaries: [SpikeSignalLatencySummary]
     public let hybridFastPath: SpikeHybridFastPathSummary
+    public let backgroundWakeReliability: SpikeBackgroundWakeReliabilitySummary
 
     public init(
         totalEntries: Int,
@@ -76,7 +136,8 @@ public struct SpikeLogAnalysisSummary: Sendable, Equatable {
         firstRecordedAt: Date?,
         lastRecordedAt: Date?,
         signalSummaries: [SpikeSignalLatencySummary],
-        hybridFastPath: SpikeHybridFastPathSummary
+        hybridFastPath: SpikeHybridFastPathSummary,
+        backgroundWakeReliability: SpikeBackgroundWakeReliabilitySummary
     ) {
         self.totalEntries = totalEntries
         self.transitionEntryCount = transitionEntryCount
@@ -84,6 +145,7 @@ public struct SpikeLogAnalysisSummary: Sendable, Equatable {
         self.lastRecordedAt = lastRecordedAt
         self.signalSummaries = signalSummaries
         self.hybridFastPath = hybridFastPath
+        self.backgroundWakeReliability = backgroundWakeReliability
     }
 
     public var hasVisitArrival: Bool {
@@ -143,6 +205,10 @@ public struct SpikeLogAnalyzer {
             transitionEntries: transitionEntries,
             lastRecordedAt: lastRecordedAt
         )
+        let backgroundWakeReliability = analyzeBackgroundWakeReliability(
+            entries: entries,
+            transitionEntries: transitionEntries
+        )
 
         return SpikeLogAnalysisSummary(
             totalEntries: entries.count,
@@ -150,7 +216,8 @@ public struct SpikeLogAnalyzer {
             firstRecordedAt: firstRecordedAt,
             lastRecordedAt: lastRecordedAt,
             signalSummaries: signalSummaries,
-            hybridFastPath: hybridFastPath
+            hybridFastPath: hybridFastPath,
+            backgroundWakeReliability: backgroundWakeReliability
         )
     }
 
@@ -168,6 +235,51 @@ public struct SpikeLogAnalyzer {
             return nil
         }
         return max(0, derivedDelay)
+    }
+
+    private func analyzeBackgroundWakeReliability(
+        entries: [SpikeLogEntry],
+        transitionEntries: [SpikeLogEntry]
+    ) -> SpikeBackgroundWakeReliabilitySummary {
+        let opportunityEntries = entries.filter { entry in
+            entry.recordType == .sessionSummary &&
+                entry.sample.signalType == .callbackOpportunity
+        }
+
+        var backgroundOpportunities = 0
+        var suspendedOpportunities = 0
+        var relaunchOpportunities = 0
+        for entry in opportunityEntries {
+            guard let opportunityType = Self.resolveOpportunityType(entry: entry) else {
+                continue
+            }
+            switch opportunityType {
+            case .backgroundWindow:
+                backgroundOpportunities += 1
+            case .suspendedWindow:
+                suspendedOpportunities += 1
+            case .relaunchWindow:
+                relaunchOpportunities += 1
+            }
+        }
+
+        return SpikeBackgroundWakeReliabilitySummary(
+            backgroundOpportunities: backgroundOpportunities,
+            backgroundCallbacks: Self.countObservedCallbacks(
+                transitionEntries: transitionEntries,
+                appState: .background
+            ),
+            suspendedOpportunities: suspendedOpportunities,
+            suspendedCallbacks: Self.countObservedCallbacks(
+                transitionEntries: transitionEntries,
+                appState: .suspended
+            ),
+            relaunchOpportunities: relaunchOpportunities,
+            relaunchCallbacks: Self.countObservedCallbacks(
+                transitionEntries: transitionEntries,
+                appState: .relaunch
+            )
+        )
     }
 
     private func analyzeHybridFastPath(
@@ -316,6 +428,47 @@ public struct SpikeLogAnalyzer {
             return .confirmed
         default:
             return nil
+        }
+    }
+
+    private static func resolveOpportunityType(entry: SpikeLogEntry) -> SpikeCallbackOpportunityType? {
+        if let explicitType = entry.sample.opportunityType {
+            return explicitType
+        }
+        switch entry.device.appState {
+        case .background:
+            return .backgroundWindow
+        case .suspended:
+            return .suspendedWindow
+        case .relaunch:
+            return .relaunchWindow
+        case .foreground:
+            return nil
+        }
+    }
+
+    private static func countObservedCallbacks(
+        transitionEntries: [SpikeLogEntry],
+        appState: SpikeAppState
+    ) -> Int {
+        var keys: Set<String> = []
+        for entry in transitionEntries where entry.device.appState == appState {
+            keys.insert(callbackDeduplicationKey(entry: entry))
+        }
+        return keys.count
+    }
+
+    private static func callbackDeduplicationKey(entry: SpikeLogEntry) -> String {
+        if let transitionID = normalizedTransitionID(entry.sample.transitionID) {
+            return "transition:\(transitionID)"
+        }
+        let callbackAt = resolveCallbackTimestamp(entry) ?? entry.recordedAt
+        let milliseconds = Int64((callbackAt.timeIntervalSince1970 * 1000).rounded())
+        switch entry.sample.signalType {
+        case .clvisitArrival, .clvisitDeparture:
+            return "visit:\(milliseconds)"
+        default:
+            return "\(entry.sample.signalType.rawValue):\(milliseconds)"
         }
     }
 

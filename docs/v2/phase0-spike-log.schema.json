@@ -84,6 +84,7 @@
             "clvisit_arrival",
             "clvisit_departure",
             "significant_location_change",
+            "callback_opportunity",
             "motion_update",
             "focus_update",
             "ssid_probe",
@@ -101,6 +102,14 @@
         "delay_seconds": {
           "type": "number",
           "minimum": 0
+        },
+        "opportunity_type": {
+          "type": "string",
+          "enum": [
+            "background_window",
+            "suspended_window",
+            "relaunch_window"
+          ]
         },
         "latitude": {
           "type": "number",

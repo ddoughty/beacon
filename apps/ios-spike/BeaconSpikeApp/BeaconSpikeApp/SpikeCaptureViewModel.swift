@@ -44,6 +44,7 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
     private let logger: NDJSONSpikeLogger
     private let adapter: CoreLocationSignalCaptureAdapter
     private var provisionalTransitionBuffer: [ProvisionalTransition] = []
+    private var lifecycleObservers: [NSObjectProtocol] = []
 
     override init() {
         let manager = CLLocationManager()
@@ -72,8 +73,15 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         self.locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         self.locationManager.allowsBackgroundLocationUpdates = true
         self.locationManager.pausesLocationUpdatesAutomatically = true
+        configureLifecycleOpportunityLogging()
+        capturePendingRelaunchOpportunityIfNeeded()
 
         record("Ready. Log file: \(logsURL.lastPathComponent)")
+    }
+
+    deinit {
+        let center = NotificationCenter.default
+        lifecycleObservers.forEach(center.removeObserver)
     }
 
     func requestAuthorizationAndStart() {
@@ -298,6 +306,7 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
 
     private static let provisionalLinkWindowSeconds: TimeInterval = 24 * 60 * 60
     private static let provisionalLinkMaxDistanceMeters: CLLocationDistance = 500
+    private static let pendingRelaunchOpportunityKey = "BeaconSpike.pendingRelaunchOpportunity"
 
     private static func makeLogFileURL() -> URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
@@ -305,6 +314,87 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         return base
             .appendingPathComponent("BeaconSpike", isDirectory: true)
             .appendingPathComponent("phase0-signals.ndjson", isDirectory: false)
+    }
+
+    private func configureLifecycleOpportunityLogging() {
+        let center = NotificationCenter.default
+        let didEnterBackground = center.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleDidEnterBackground()
+        }
+        let didBecomeActive = center.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleDidBecomeActive()
+        }
+        lifecycleObservers.append(contentsOf: [didEnterBackground, didBecomeActive])
+    }
+
+    private func capturePendingRelaunchOpportunityIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: Self.pendingRelaunchOpportunityKey) else {
+            return
+        }
+        defaults.set(false, forKey: Self.pendingRelaunchOpportunityKey)
+        appendCallbackOpportunity(
+            .relaunchWindow,
+            appState: .relaunch,
+            notes: "window_opened:cold_launch_after_background"
+        )
+    }
+
+    private func handleDidEnterBackground() {
+        let defaults = UserDefaults.standard
+        defaults.set(true, forKey: Self.pendingRelaunchOpportunityKey)
+        appendCallbackOpportunity(
+            .backgroundWindow,
+            appState: .background,
+            notes: "window_opened:did_enter_background"
+        )
+        appendCallbackOpportunity(
+            .suspendedWindow,
+            appState: .suspended,
+            notes: "window_opened:background_transition"
+        )
+    }
+
+    private func handleDidBecomeActive() {
+        let defaults = UserDefaults.standard
+        defaults.set(false, forKey: Self.pendingRelaunchOpportunityKey)
+    }
+
+    private func appendCallbackOpportunity(
+        _ opportunityType: SpikeCallbackOpportunityType,
+        appState: SpikeAppState,
+        notes: String
+    ) {
+        let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let batteryLevel = batteryLevelPercent()
+        Task {
+            do {
+                try await adapter.captureCallbackOpportunity(
+                    opportunityType,
+                    appState: appState,
+                    lowPowerMode: lowPowerMode,
+                    batteryLevelPct: batteryLevel,
+                    notes: notes
+                )
+                await MainActor.run {
+                    record("Recorded callback opportunity (\(opportunityType.rawValue))")
+                }
+                await refreshLogEntryCount()
+            } catch {
+                await MainActor.run {
+                    lastError = "Opportunity capture failed: \(error.localizedDescription)"
+                    record(lastError ?? "Opportunity capture failed")
+                }
+            }
+        }
     }
 
     private static func describe(_ status: CLAuthorizationStatus) -> String {

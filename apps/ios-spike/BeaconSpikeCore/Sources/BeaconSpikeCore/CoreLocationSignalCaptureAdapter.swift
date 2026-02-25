@@ -137,6 +137,35 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
         try await appendEntry(entry)
     }
 
+    public func captureCallbackOpportunity(
+        _ opportunityType: SpikeCallbackOpportunityType,
+        appState: SpikeAppState,
+        lowPowerMode: Bool? = nil,
+        batteryLevelPct: Double? = nil,
+        recordedAt: Date? = nil,
+        notes: String? = nil
+    ) async throws {
+        let capturedAt = recordedAt ?? now()
+        let context = makeDeviceContext(
+            appState: appState,
+            lowPowerMode: lowPowerMode,
+            batteryLevelPct: batteryLevelPct
+        )
+        let entry = SpikeLogEntry(
+            recordType: .sessionSummary,
+            recordedAt: capturedAt,
+            sessionID: sessionID,
+            device: context,
+            sample: SpikeSample(
+                signalType: .callbackOpportunity,
+                callbackReceivedAt: capturedAt,
+                opportunityType: opportunityType,
+                notes: notes
+            )
+        )
+        try await appendEntry(entry)
+    }
+
     private func makeVisitEntry(
         signalType: SpikeSignalType,
         eventOccurredAt: Date,
