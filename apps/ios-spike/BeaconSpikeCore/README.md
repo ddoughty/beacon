@@ -29,8 +29,11 @@ In Xcode, run the `BeaconSpikeApp` scheme on a device/simulator. The app will:
 
 - request location authorization
 - start `CLVisit` and significant location monitoring
+- request Focus authorization (when available) for focus snapshot logging
 - append callbacks through `CoreLocationSignalCaptureAdapter` into NDJSON logs
+- emit SSID probe and Focus snapshot records on lifecycle/callback events
 - show log path, entry count, and recent callback activity in a debug UI
+- provide controls to capture manual SSID/Focus snapshots and clear the log
 
 Analyze an exported NDJSON log:
 

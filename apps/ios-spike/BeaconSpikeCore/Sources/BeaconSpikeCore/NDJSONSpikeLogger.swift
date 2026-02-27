@@ -63,6 +63,12 @@ public final actor NDJSONSpikeLogger {
         let parser = NDJSONSpikeLogParser()
         return try parser.parse(fileURL: fileURL)
     }
+
+    public func clear() throws {
+        if fileManager.fileExists(atPath: fileURL.path) {
+            try fileManager.removeItem(at: fileURL)
+        }
+    }
 }
 
 public struct NDJSONSpikeLogParser {

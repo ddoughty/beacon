@@ -32,6 +32,24 @@ import Foundation
     #expect(entries[0].schemaVersion == 1)
 }
 
+@Test func loggerClearRemovesEntries() async throws {
+    let tempDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("BeaconSpikeCoreTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDirectory) }
+
+    let outputURL = tempDirectory.appendingPathComponent("phase0.ndjson")
+    let logger = NDJSONSpikeLogger(fileURL: outputURL)
+    try await logger.append(makeEntry(signal: .clvisitArrival, appState: .background, delaySeconds: 1))
+    #expect(FileManager.default.fileExists(atPath: outputURL.path))
+
+    try await logger.clear()
+
+    #expect(!FileManager.default.fileExists(atPath: outputURL.path))
+    let entries = try await logger.readAll()
+    #expect(entries.isEmpty)
+}
+
 @Test func payloadUsesExpectedSnakeCaseKeys() throws {
     let entry = makeEntry(
         signal: .ssidProbe,
@@ -190,6 +208,66 @@ import Foundation
     #expect(entries[0].recordType == .sessionSummary)
     #expect(entries[0].sample.signalType == .callbackOpportunity)
     #expect(entries[0].sample.opportunityType == .backgroundWindow)
+    #expect(entries[0].sample.callbackReceivedAt == capturedAt)
+}
+
+@Test func ssidProbeCaptureWritesSSIDProbeEntry() async throws {
+    let sink = RecordingSink()
+    let adapter = CoreLocationSignalCaptureAdapter(
+        sessionID: "session-ssid",
+        deviceModel: "iPhone16,2",
+        iosVersion: "18.2",
+        appendEntry: { entry in
+            await sink.append(entry)
+        }
+    )
+
+    let capturedAt = Date(timeIntervalSince1970: 1_709_067_900)
+    try await adapter.captureSSIDProbe(
+        status: .available,
+        appState: .foreground,
+        lowPowerMode: false,
+        batteryLevelPct: 71,
+        recordedAt: capturedAt,
+        notes: "trigger:test"
+    )
+
+    let entries = await sink.snapshot()
+    #expect(entries.count == 1)
+    #expect(entries[0].recordType == .ssidProbe)
+    #expect(entries[0].sample.signalType == .ssidProbe)
+    #expect(entries[0].sample.ssidStatus == .available)
+    #expect(entries[0].sample.callbackReceivedAt == capturedAt)
+}
+
+@Test func focusSnapshotCaptureWritesFocusSnapshotEntry() async throws {
+    let sink = RecordingSink()
+    let adapter = CoreLocationSignalCaptureAdapter(
+        sessionID: "session-focus",
+        deviceModel: "iPhone16,2",
+        iosVersion: "18.2",
+        appendEntry: { entry in
+            await sink.append(entry)
+        }
+    )
+
+    let capturedAt = Date(timeIntervalSince1970: 1_709_068_100)
+    try await adapter.captureFocusSnapshot(
+        focusState: .on,
+        focusLabel: "personal",
+        appState: .foreground,
+        lowPowerMode: false,
+        batteryLevelPct: 70,
+        recordedAt: capturedAt,
+        notes: "trigger:test"
+    )
+
+    let entries = await sink.snapshot()
+    #expect(entries.count == 1)
+    #expect(entries[0].recordType == .focusSnapshot)
+    #expect(entries[0].sample.signalType == .focusUpdate)
+    #expect(entries[0].sample.focusState == .on)
+    #expect(entries[0].sample.focusLabel == "personal")
     #expect(entries[0].sample.callbackReceivedAt == capturedAt)
 }
 

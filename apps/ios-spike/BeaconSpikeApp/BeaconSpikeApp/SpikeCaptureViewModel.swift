@@ -1,6 +1,8 @@
 import BeaconSpikeCore
 import CoreLocation
 import Foundation
+import Intents
+import NetworkExtension
 import UIKit
 
 struct SpikeCaptureEvent: Identifiable {
@@ -123,6 +125,35 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         return fileURL
     }
 
+    func clearLog() {
+        lastError = nil
+        Task {
+            do {
+                try await logger.clear()
+                await MainActor.run {
+                    provisionalTransitionBuffer.removeAll()
+                    logEntryCount = 0
+                    events.removeAll()
+                    record("Cleared NDJSON log")
+                }
+            } catch {
+                await MainActor.run {
+                    lastError = "Clear log failed: \(error.localizedDescription)"
+                    record(lastError ?? "Clear log failed")
+                }
+            }
+        }
+    }
+
+    func captureSSIDProbeManually() {
+        captureSSIDProbe(reason: "manual_probe")
+    }
+
+    func captureFocusSnapshotManually() {
+        requestFocusAuthorizationIfNeeded()
+        captureFocusSnapshot(reason: "manual_probe")
+    }
+
     private func startMonitoringIfAuthorized(for status: CLAuthorizationStatus) {
         authorizationStatus = Self.describe(status)
         guard status == .authorizedAlways || status == .authorizedWhenInUse else {
@@ -138,6 +169,8 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         locationManager.startMonitoringSignificantLocationChanges()
         monitoringStatus = "active"
         record("Started CLVisit + significant location monitoring")
+        requestFocusAuthorizationIfNeeded()
+        captureSignalContext(reason: "monitoring_started")
     }
 
     private func captureVisit(_ snapshot: VisitSnapshot) {
@@ -145,6 +178,7 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         let batteryLevel = batteryLevelPercent()
         let callbackAt = Date()
+        captureSignalContext(reason: "clvisit_callback")
         let linkedProvisionalID = consumeProvisionalMatch(for: snapshot, callbackAt: callbackAt)
         let transitionID = linkedProvisionalID ?? Self.makeTransitionID(prefix: "confirm")
 
@@ -183,6 +217,7 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         let batteryLevel = batteryLevelPercent()
         let callbackAt = Date()
+        captureSignalContext(reason: "significant_change_callback")
         let transitionID = Self.makeTransitionID(prefix: "prov")
 
         Task {
@@ -366,6 +401,7 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
     private func handleDidBecomeActive() {
         let defaults = UserDefaults.standard
         defaults.set(false, forKey: Self.pendingRelaunchOpportunityKey)
+        captureSignalContext(reason: "did_become_active")
     }
 
     private func appendCallbackOpportunity(
@@ -397,6 +433,160 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         }
     }
 
+    private func captureSignalContext(reason: String) {
+        captureSSIDProbe(reason: reason)
+        captureFocusSnapshot(reason: reason)
+    }
+
+    private func captureSSIDProbe(reason: String) {
+        let appState = currentAppState()
+        let locationAuthorization = locationManager.authorizationStatus
+        let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let batteryLevel = batteryLevelPercent()
+
+        guard locationAuthorization != .denied, locationAuthorization != .restricted else {
+            appendSSIDProbe(
+                status: .permissionDenied,
+                appState: appState,
+                lowPowerMode: lowPowerMode,
+                batteryLevel: batteryLevel,
+                notes: "trigger:\(reason);location_auth=\(Self.describe(locationAuthorization))"
+            )
+            return
+        }
+
+        if #available(iOS 14.0, *) {
+            NEHotspotNetwork.fetchCurrent { [weak self] currentNetwork in
+                Task { @MainActor [weak self] in
+                    guard let self else {
+                        return
+                    }
+                    let status: SpikeSSIDStatus = currentNetwork == nil ? .unavailable : .available
+                    self.appendSSIDProbe(
+                        status: status,
+                        appState: self.currentAppState(),
+                        lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
+                        batteryLevel: self.batteryLevelPercent(),
+                        notes: "trigger:\(reason);location_auth=\(Self.describe(locationAuthorization))"
+                    )
+                }
+            }
+        } else {
+            appendSSIDProbe(
+                status: .unavailable,
+                appState: appState,
+                lowPowerMode: lowPowerMode,
+                batteryLevel: batteryLevel,
+                notes: "trigger:\(reason);unsupported_ios_for_wifi_probe"
+            )
+        }
+    }
+
+    private func appendSSIDProbe(
+        status: SpikeSSIDStatus,
+        appState: SpikeAppState,
+        lowPowerMode: Bool,
+        batteryLevel: Double?,
+        notes: String
+    ) {
+        Task {
+            do {
+                try await adapter.captureSSIDProbe(
+                    status: status,
+                    appState: appState,
+                    lowPowerMode: lowPowerMode,
+                    batteryLevelPct: batteryLevel,
+                    notes: notes
+                )
+                await refreshLogEntryCount()
+            } catch {
+                await MainActor.run {
+                    lastError = "SSID probe capture failed: \(error.localizedDescription)"
+                    record(lastError ?? "SSID probe capture failed")
+                }
+            }
+        }
+    }
+
+    private func requestFocusAuthorizationIfNeeded() {
+        guard #available(iOS 15.0, *) else {
+            return
+        }
+        let center = INFocusStatusCenter.default
+        guard center.authorizationStatus == .notDetermined else {
+            return
+        }
+        center.requestAuthorization { [weak self] status in
+            Task { @MainActor [weak self] in
+                guard let self else {
+                    return
+                }
+                self.record("Focus authorization status: \(Self.describeFocusAuthorizationStatus(status))")
+                self.captureFocusSnapshot(reason: "focus_auth_result")
+            }
+        }
+    }
+
+    private func captureFocusSnapshot(reason: String) {
+        let appState = currentAppState()
+        let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let batteryLevel = batteryLevelPercent()
+
+        guard #available(iOS 15.0, *) else {
+            appendFocusSnapshot(
+                state: .unknown,
+                appState: appState,
+                lowPowerMode: lowPowerMode,
+                batteryLevel: batteryLevel,
+                notes: "trigger:\(reason);focus_auth=unsupported_ios"
+            )
+            return
+        }
+
+        let center = INFocusStatusCenter.default
+        let authStatus = center.authorizationStatus
+        let focusState: SpikeFocusState
+        if authStatus == .authorized, let isFocused = center.focusStatus.isFocused {
+            focusState = isFocused ? .on : .off
+        } else {
+            focusState = .unknown
+        }
+
+        appendFocusSnapshot(
+            state: focusState,
+            appState: appState,
+            lowPowerMode: lowPowerMode,
+            batteryLevel: batteryLevel,
+            notes: "trigger:\(reason);focus_auth=\(Self.describeFocusAuthorizationStatus(authStatus))"
+        )
+    }
+
+    private func appendFocusSnapshot(
+        state: SpikeFocusState,
+        appState: SpikeAppState,
+        lowPowerMode: Bool,
+        batteryLevel: Double?,
+        notes: String
+    ) {
+        Task {
+            do {
+                try await adapter.captureFocusSnapshot(
+                    focusState: state,
+                    appState: appState,
+                    lowPowerMode: lowPowerMode,
+                    batteryLevelPct: batteryLevel,
+                    notes: notes
+                )
+                await refreshLogEntryCount()
+            } catch {
+                await MainActor.run {
+                    lastError = "Focus snapshot capture failed: \(error.localizedDescription)"
+                    record(lastError ?? "Focus snapshot capture failed")
+                }
+            }
+        }
+    }
+
     private static func describe(_ status: CLAuthorizationStatus) -> String {
         switch status {
         case .notDetermined:
@@ -409,6 +599,21 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
             return "authorized always"
         case .authorizedWhenInUse:
             return "authorized when in use"
+        @unknown default:
+            return "unknown"
+        }
+    }
+
+    private static func describeFocusAuthorizationStatus(_ status: INFocusStatusAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined:
+            return "not_determined"
+        case .restricted:
+            return "restricted"
+        case .denied:
+            return "denied"
+        case .authorized:
+            return "authorized"
         @unknown default:
             return "unknown"
         }

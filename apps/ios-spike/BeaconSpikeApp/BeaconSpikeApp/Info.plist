@@ -20,19 +20,21 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFocusStatusUsageDescription</key>
+	<string>Beacon Spike records Focus status snapshots during validation runs.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Beacon Spike collects CLVisit and significant location callbacks for Phase 0 signal validation.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Beacon Spike collects location callbacks while running validation scenarios.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
-	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

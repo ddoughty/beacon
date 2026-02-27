@@ -166,6 +166,66 @@ public struct CoreLocationSignalCaptureAdapter: Sendable {
         try await appendEntry(entry)
     }
 
+    public func captureSSIDProbe(
+        status: SpikeSSIDStatus,
+        appState: SpikeAppState,
+        lowPowerMode: Bool? = nil,
+        batteryLevelPct: Double? = nil,
+        recordedAt: Date? = nil,
+        notes: String? = nil
+    ) async throws {
+        let capturedAt = recordedAt ?? now()
+        let context = makeDeviceContext(
+            appState: appState,
+            lowPowerMode: lowPowerMode,
+            batteryLevelPct: batteryLevelPct
+        )
+        let entry = SpikeLogEntry(
+            recordType: .ssidProbe,
+            recordedAt: capturedAt,
+            sessionID: sessionID,
+            device: context,
+            sample: SpikeSample(
+                signalType: .ssidProbe,
+                callbackReceivedAt: capturedAt,
+                ssidStatus: status,
+                notes: notes
+            )
+        )
+        try await appendEntry(entry)
+    }
+
+    public func captureFocusSnapshot(
+        focusState: SpikeFocusState,
+        focusLabel: String? = nil,
+        appState: SpikeAppState,
+        lowPowerMode: Bool? = nil,
+        batteryLevelPct: Double? = nil,
+        recordedAt: Date? = nil,
+        notes: String? = nil
+    ) async throws {
+        let capturedAt = recordedAt ?? now()
+        let context = makeDeviceContext(
+            appState: appState,
+            lowPowerMode: lowPowerMode,
+            batteryLevelPct: batteryLevelPct
+        )
+        let entry = SpikeLogEntry(
+            recordType: .focusSnapshot,
+            recordedAt: capturedAt,
+            sessionID: sessionID,
+            device: context,
+            sample: SpikeSample(
+                signalType: .focusUpdate,
+                callbackReceivedAt: capturedAt,
+                focusState: focusState,
+                focusLabel: focusLabel,
+                notes: notes
+            )
+        )
+        try await appendEntry(entry)
+    }
+
     private func makeVisitEntry(
         signalType: SpikeSignalType,
         eventOccurredAt: Date,

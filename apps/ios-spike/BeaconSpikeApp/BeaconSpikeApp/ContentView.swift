@@ -3,8 +3,7 @@ import UIKit
 
 struct ContentView: View {
     @StateObject private var viewModel = SpikeCaptureViewModel()
-    @State private var exportFileURL: URL?
-    @State private var isShowingExportSheet = false
+    @State private var exportRequest: ExportRequest?
 
     var body: some View {
         NavigationStack {
@@ -31,10 +30,21 @@ struct ContentView: View {
                         }
                     }
 
+                    Button("Capture SSID Probe") {
+                        viewModel.captureSSIDProbeManually()
+                    }
+
+                    Button("Capture Focus Snapshot") {
+                        viewModel.captureFocusSnapshotManually()
+                    }
+
+                    Button("Clear Log", role: .destructive) {
+                        viewModel.clearLog()
+                    }
+
                     Button("Export NDJSON") {
                         if let fileURL = viewModel.prepareExportFileURL() {
-                            exportFileURL = fileURL
-                            isShowingExportSheet = true
+                            exportRequest = ExportRequest(fileURL: fileURL)
                         }
                     }
                 }
@@ -74,18 +84,17 @@ struct ContentView: View {
         .task {
             await viewModel.refreshLogEntryCount()
         }
-        .sheet(isPresented: $isShowingExportSheet, onDismiss: {
-            exportFileURL = nil
-        }) {
-            if let exportFileURL {
-                ActivityView(activityItems: [exportFileURL])
-            } else {
-                Text("No file selected")
-                    .font(.headline)
-                    .padding()
-            }
+        .sheet(item: $exportRequest, onDismiss: {
+            exportRequest = nil
+        }) { request in
+            ActivityView(activityItems: [request.fileURL])
         }
     }
+}
+
+private struct ExportRequest: Identifiable {
+    let id = UUID()
+    let fileURL: URL
 }
 
 private struct ActivityView: UIViewControllerRepresentable {
