@@ -174,13 +174,14 @@
 			};
 			name = Release;
 		};
-		A1000001000000000000000E /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CSB32H74W9;
-				GENERATE_INFOPLIST_FILE = NO;
+			A1000001000000000000000E /* Debug */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					CODE_SIGN_ENTITLEMENTS = BeaconSpikeApp/BeaconSpikeApp.entitlements;
+					CODE_SIGN_STYLE = Automatic;
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = CSB32H74W9;
+					GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BeaconSpikeApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -196,13 +197,14 @@
 			};
 			name = Debug;
 		};
-		A1000001000000000000000F /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CSB32H74W9;
-				GENERATE_INFOPLIST_FILE = NO;
+			A1000001000000000000000F /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					CODE_SIGN_ENTITLEMENTS = BeaconSpikeApp/BeaconSpikeApp.entitlements;
+					CODE_SIGN_STYLE = Automatic;
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = CSB32H74W9;
+					GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BeaconSpikeApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
