@@ -1,7 +1,6 @@
 import BeaconSpikeCore
 import CoreLocation
 import Foundation
-import Intents
 import NetworkExtension
 import UIKit
 
@@ -150,7 +149,6 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
     }
 
     func captureFocusSnapshotManually() {
-        requestFocusAuthorizationIfNeeded()
         captureFocusSnapshot(reason: "manual_probe")
     }
 
@@ -169,7 +167,6 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         locationManager.startMonitoringSignificantLocationChanges()
         monitoringStatus = "active"
         record("Started CLVisit + significant location monitoring")
-        requestFocusAuthorizationIfNeeded()
         captureSignalContext(reason: "monitoring_started")
     }
 
@@ -508,56 +505,18 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         }
     }
 
-    private func requestFocusAuthorizationIfNeeded() {
-        guard #available(iOS 15.0, *) else {
-            return
-        }
-        let center = INFocusStatusCenter.default
-        guard center.authorizationStatus == .notDetermined else {
-            return
-        }
-        center.requestAuthorization { [weak self] status in
-            Task { @MainActor [weak self] in
-                guard let self else {
-                    return
-                }
-                self.record("Focus authorization status: \(Self.describeFocusAuthorizationStatus(status))")
-                self.captureFocusSnapshot(reason: "focus_auth_result")
-            }
-        }
-    }
-
     private func captureFocusSnapshot(reason: String) {
         let appState = currentAppState()
         let lowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         let batteryLevel = batteryLevelPercent()
-
-        guard #available(iOS 15.0, *) else {
-            appendFocusSnapshot(
-                state: .unknown,
-                appState: appState,
-                lowPowerMode: lowPowerMode,
-                batteryLevel: batteryLevel,
-                notes: "trigger:\(reason);focus_auth=unsupported_ios"
-            )
-            return
-        }
-
-        let center = INFocusStatusCenter.default
-        let authStatus = center.authorizationStatus
-        let focusState: SpikeFocusState
-        if authStatus == .authorized, let isFocused = center.focusStatus.isFocused {
-            focusState = isFocused ? .on : .off
-        } else {
-            focusState = .unknown
-        }
-
+        // Avoid Intents focus-status APIs here: they emit DNDErrorDomain 1004 without
+        // Apple-granted Communication Notifications entitlement on this app ID.
         appendFocusSnapshot(
-            state: focusState,
+            state: .unknown,
             appState: appState,
             lowPowerMode: lowPowerMode,
             batteryLevel: batteryLevel,
-            notes: "trigger:\(reason);focus_auth=\(Self.describeFocusAuthorizationStatus(authStatus))"
+            notes: "trigger:\(reason);focus_auth=unavailable_missing_comm_notifications_entitlement"
         )
     }
 
@@ -604,20 +563,6 @@ final class SpikeCaptureViewModel: NSObject, ObservableObject {
         }
     }
 
-    private static func describeFocusAuthorizationStatus(_ status: INFocusStatusAuthorizationStatus) -> String {
-        switch status {
-        case .notDetermined:
-            return "not_determined"
-        case .restricted:
-            return "restricted"
-        case .denied:
-            return "denied"
-        case .authorized:
-            return "authorized"
-        @unknown default:
-            return "unknown"
-        }
-    }
 }
 
 extension SpikeCaptureViewModel: CLLocationManagerDelegate {
