@@ -72,3 +72,4 @@
 {"actor":"Dennis Doughty","comment":null,"created_at":"2026-03-02T17:02:15Z","event_type":"created","id":72,"issue_id":"beacon-0qa","new_value":"","old_value":""}
 {"actor":"Dennis Doughty","comment":null,"created_at":"2026-03-02T17:02:22Z","event_type":"closed","id":73,"issue_id":"beacon-0qa","new_value":"Added communication notifications entitlement and validated simulator + iOS/device builds","old_value":""}
 {"actor":"Dennis Doughty","comment":null,"created_at":"2026-03-02T17:25:31Z","event_type":"created","id":74,"issue_id":"beacon-2id","new_value":"","old_value":""}
+{"actor":"Dennis Doughty","comment":null,"created_at":"2026-03-02T17:25:40Z","event_type":"closed","id":75,"issue_id":"beacon-2id","new_value":"Removed Intents Focus API calls; fallback logs unknown focus snapshots without DNDError spam","old_value":""}
